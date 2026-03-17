@@ -689,9 +689,13 @@ function getSavedNames(){return JSON.parse(localStorage.getItem('wpt_saved_names
 function saveName(name){const n=name.trim();if(!n)return;const names=getSavedNames();if(!names.find(x=>x.toLowerCase()===n.toLowerCase())){names.unshift(n);localStorage.setItem('wpt_saved_names',JSON.stringify(names.slice(0,20)));}}
 
 function buildLoginScreen(){
-  renderSavedNames();
-  buildNumpad('loginNumpad', loginNumpadKey);
-  document.getElementById('loginNameInput').addEventListener('keydown',e=>{if(e.key==='Enter')proceedToPin();});
+  try{
+    renderSavedNames();
+    // Numpad is built fresh in proceedToPin() each time — not here
+    // Keyboard binding for name field
+    const nameInput=document.getElementById('loginNameInput');
+    if(nameInput) nameInput.onkeydown=e=>{if(e.key==='Enter')window.proceedToPin();};
+  }catch(e){console.warn('buildLoginScreen error:',e);}
 }
 
 function renderSavedNames(){
@@ -708,6 +712,14 @@ window.quickSelectName=function(name){
   proceedToPin();
 };
 
+// Keyboard fallback for login PIN (type digits on keyboard)
+document.addEventListener('keydown', function loginKeyHandler(e){
+  const step2=document.getElementById('loginStep2');
+  if(!step2||step2.style.display==='none')return;
+  if(e.key>='0'&&e.key<='9') loginNumpadKey(e.key);
+  else if(e.key==='Backspace') loginNumpadKey('⌫');
+});
+
 window.proceedToPin=function(){
   const name=document.getElementById('loginNameInput').value.trim();
   if(!name){document.getElementById('loginStep1Error').textContent='Please enter your name.';return;}
@@ -718,6 +730,10 @@ window.proceedToPin=function(){
   document.getElementById('loginStep2').style.display='block';
   updateLoginDots();
   document.getElementById('loginError').textContent='';
+  // Rebuild numpad each time so handlers are fresh and visible
+  buildNumpad('loginNumpad', loginNumpadKey);
+  // Focus hint
+  setTimeout(()=>document.getElementById('loginStep2').querySelector('.numpad-btn')?.focus(),100);
 };
 
 window.loginBack=function(){
@@ -1846,12 +1862,15 @@ window.closeModal=id=>document.getElementById(id).classList.remove('open');
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 
 // ── KEYBOARD ─────────────────────────────────────────
-document.getElementById('scanOrder').addEventListener('keydown',e=>{if(e.key!=='Enter')return;const l=document.getElementById('scanLines').value.trim();if(!l){document.getElementById('scanLines').focus();return;}const pk=document.getElementById('scanPicker').value.trim();if(pk)processOrder();else document.getElementById('scanPicker').focus();});
-document.getElementById('scanLines').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('scanPicker').focus();});
-document.getElementById('scanPicker').addEventListener('keydown',e=>{if(e.key==='Enter')processOrder();});
+// Wrapped in try/catch — if any element is missing it won't break the module
+try{
+  document.getElementById('scanOrder').addEventListener('keydown',e=>{if(e.key!=='Enter')return;const l=document.getElementById('scanLines').value.trim();if(!l){document.getElementById('scanLines').focus();return;}const pk=document.getElementById('scanPicker').value.trim();if(pk)processOrder();else document.getElementById('scanPicker').focus();});
+  document.getElementById('scanLines').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('scanPicker').focus();});
+  document.getElementById('scanPicker').addEventListener('keydown',e=>{if(e.key==='Enter')processOrder();});
+}catch(e){console.warn('keyboard bind error:',e);}
 
 // ── CLOCK ─────────────────────────────────────────────
-const tick=()=>document.getElementById('liveTime').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+'  '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+const tick=()=>{const el=document.getElementById('liveTime');if(el)el.textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+'  '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});};
 setInterval(tick,1000);tick();
 
 // Auto-refresh live page every 30 seconds (elapsed time updates)
@@ -1863,7 +1882,9 @@ setInterval(()=>{
 // ── BOOT ─────────────────────────────────────────────
 async function boot(){
   applyTheme();
+  // Show login screen immediately — don't wait for Firebase
   buildLoginScreen();
+  // Connect Firebase in background — login screen stays visible until Firebase is ready
   document.getElementById('loadingOverlay').style.display='flex';
   try{
     await getDocs(collection(db,'pickers'));
@@ -1871,7 +1892,11 @@ async function boot(){
     startListeners();
     document.getElementById('loadingOverlay').style.display='none';
   }catch(e){
-    document.getElementById('loadingOverlay').innerHTML=`<div style="color:var(--red);font-size:14px;font-weight:600">⚠️ Firebase failed</div><div style="font-size:12px;max-width:300px;text-align:center;margin-top:8px;color:var(--text2)">${e.message}</div>`;
+    // Firebase failed — still allow login screen to be visible, show error in overlay
+    document.getElementById('loadingOverlay').innerHTML=
+      `<div style="color:var(--red);font-size:14px;font-weight:600">⚠️ Firebase connection failed</div>
+       <div style="font-size:12px;max-width:300px;text-align:center;margin-top:8px;color:var(--text2)">${e.message}</div>
+       <button onclick="document.getElementById('loadingOverlay').style.display='none'" style="margin-top:14px;padding:8px 18px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px">Continue Offline</button>`;
   }
 }
 boot();
