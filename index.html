@@ -330,7 +330,7 @@ tbody td{padding:8px 11px;font-size:12px}
 <div class="page" id="page-backorder">
   <div class="alert alert-amber">🔄 Orders with shortages awaiting fulfillment. Check the box then click Complete to move to archive.</div>
   <div class="card"><div class="card-header"><div class="card-title">Back Order Queue</div></div>
-    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>✓</th><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Shortage Items</th><th>Action</th></tr></thead><tbody id="backorderBody"></tbody></table></div></div>
+    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>✓</th><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Shortage Items</th><th>Outcome</th><th>Action</th></tr></thead><tbody id="backorderBody"></tbody></table></div></div>
   </div>
 </div>
 
@@ -438,6 +438,18 @@ tbody td{padding:8px 11px;font-size:12px}
             <div><div style="font-size:13px;font-weight:600">Master Reset PIN</div><div class="text-xs text-muted">Required to clear all data &amp; change PINs</div></div>
             <button class="btn btn-ghost btn-sm" onclick="initiatePinChange('reset','Master Reset PIN')">Change</button>
           </div>
+        </div>
+      </div>
+    </div>
+    <div class="card mb-12"><div class="card-header"><div class="card-title">🔄 Force App Refresh</div></div>
+      <div class="card-body">
+        <div class="text-xs text-muted mb-10">Push a version update so everyone's browser reloads to the latest version of the app the next time they open it. Requires IC Manager PIN.</div>
+        <div class="flex-c gap-8" style="flex-wrap:wrap">
+          <div class="text-xs text-muted">Current local version: <strong id="localVersionDisplay"></strong></div>
+          <div class="text-xs text-muted" id="serverVersionDisplay"></div>
+        </div>
+        <div class="mt-8">
+          <button class="btn btn-primary btn-sm" onclick="initiatePushVersion()">📡 Push Version Update to All Users</button>
         </div>
       </div>
     </div>
@@ -657,7 +669,7 @@ const moStart  = ()=>{const d=new Date();d.setDate(1);d.setHours(0,0,0,0);return
 function byPeriod(arr,p){if(p==='today')return arr.filter(o=>o.date===todayStr());if(p==='week')return arr.filter(o=>o.startTs>=wkStart());if(p==='month')return arr.filter(o=>o.startTs>=moStart());return arr}
 function divBadge(code){if(!code)return'<span class="badge bg-gray">—</span>';return`<span class="badge ${DIV_BADGE[code]||'bg-gray'}">${DIV[code]?.name||code}</span>`}
 function shiftBadge(s){return`<span class="badge ${s==='1st'?'bg-blue':'bg-purple'}">${s}</span>`}
-function statusBadgeOrder(s){const m={open:'<span class="badge bg-blue">● Open</span>',closed:'<span class="badge bg-green">✓ Done</span>',backorder:'<span class="badge bg-amber">🔄 Back Order</span>',backorder_done:'<span class="badge bg-teal">✓ B/O Done</span>'};return m[s]||'<span class="badge bg-gray">—</span>'}
+function statusBadgeOrder(s){const m={open:'<span class="badge bg-blue">● Open</span>',closed:'<span class="badge bg-green">✓ Done</span>',backorder:'<span class="badge bg-amber">🔄 Back Order</span>',backorder_done:'<span class="badge bg-teal">✓ B/O Done</span>',ship_incomplete:'<span class="badge bg-red">⚠️ Ship Incomplete</span>'};return m[s]||'<span class="badge bg-gray">—</span>'}
 
 // ── LOGIN SYSTEM ─────────────────────────────────────
 // One universal login PIN for everyone.
@@ -730,6 +742,8 @@ function updateLoginDots(){
 async function loginSuccess(name){
   saveName(name);
   currentUser={name,role:'user',initials:name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)};
+  // Persist session across refreshes (cleared when browser tab is closed)
+  sessionStorage.setItem('wpt_session', JSON.stringify(currentUser));
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('mainApp').style.display='block';
   document.getElementById('userNameDisplay').textContent=name;
@@ -774,6 +788,7 @@ function ppNumpadKey(k){
 window.doLogout=function(){
   if(!confirm('Log out?'))return;
   currentUser=null;
+  sessionStorage.removeItem('wpt_session');
   document.getElementById('mainApp').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
   // Reset login form
@@ -1196,10 +1211,15 @@ window.renderDashboard=function(){
   SHORTAGES.forEach(s=>{const o=ORDERS.find(x=>x.id===s.orderId);if(o&&pm[o.pickerName])pm[o.pickerName].shorts+=s.qty;});
   document.getElementById('dashPickerBody').innerHTML=Object.entries(pm).sort((a,b)=>b[1].lines-a[1].lines).map(([n,d])=>{
     const avgL=d.orders>0?(d.lines/d.orders).toFixed(1):'—';
-    // Session span: first start → last end
-    const sessionMs=(d.starts.length&&d.ends.length)?Math.max(...d.ends)-Math.min(...d.starts):0;
+    const BREAK_MS=50*60*1000;
+    let sessionMs=0;
+    if(d.starts.length){
+      const rawMs=Math.max(...(d.ends.length?d.ends:[Date.now()]))-Math.min(...d.starts);
+      const breakDeduct=rawMs>3*3600000?BREAK_MS:0;
+      sessionMs=Math.max(rawMs-breakDeduct,rawMs*0.5);
+    }
     const avgT=sessionMs>0&&d.orders>0?fmtDur(sessionMs/d.orders):'—';
-    const lph=sessionMs>0&&d.lines>0?(d.lines/(sessionMs/3600000)).toFixed(1):'—';
+    const lph=(sessionMs>=30*60000&&d.lines>0)?(d.lines/(sessionMs/3600000)).toFixed(1):'—';
     return`<tr><td><strong>${n}</strong></td><td>${shiftBadge(d.shift)}</td><td>${d.orders}</td><td><strong>${d.lines}</strong></td><td>${avgL}</td><td>${avgT}</td><td><strong>${lph}</strong></td><td>${d.shorts>0?`<span class="badge bg-amber">${d.shorts}</span>`:'—'}</td></tr>`;
   }).join('')||'<tr><td colspan="8" class="text-c text-muted" style="padding:22px">No data</td></tr>';
 };
@@ -1263,12 +1283,17 @@ function pickerCardHTML(p,now,isDeactivated){
   const td=mine.filter(o=>o.date===todayStr());
   const tdL=td.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
   const totL=mine.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-  // Lines/hr: total lines / span from first order today to last completion today
+  // Lines/hr with 50-min break deduction and 30-min minimum floor to avoid inflated early rates
+  const BREAK_MS=50*60*1000;
   const tdAll=ORDERS.filter(o=>o.pickerName===p.name&&o.date===todayStr());
   const starts=tdAll.map(o=>o.startTs).filter(Boolean);
-  const ends=td.map(o=>o.endTs).filter(Boolean);
-  const sessionMs=(starts.length&&ends.length)?Math.max(...ends)-Math.min(...starts):0;
-  const lph=sessionMs>0&&tdL>0?(tdL/(sessionMs/3600000)).toFixed(1):'—';
+  let sessionMs=0;
+  if(starts.length){
+    const rawMs=now-Math.min(...starts);
+    const breakDeduct=rawMs>3*3600000?BREAK_MS:0;
+    sessionMs=Math.max(rawMs-breakDeduct,rawMs*0.5);
+  }
+  const lph=(sessionMs>=30*60000&&tdL>0)?(tdL/(sessionMs/3600000)).toFixed(1):'—';
   const inact=!isDeactivated&&(now-p.lastActiveTs>30*86400000);
   const isPicking=ORDERS.some(o=>o.pickerName===p.name&&o.status==='open');
   const style=isDeactivated?'opacity:.55;':'';
@@ -1360,11 +1385,18 @@ window.renderLive=function(){
     const done=myOrders.filter(o=>o.status!=='open');
     const openOrd=myOrders.find(o=>o.status==='open');
     const lines=done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-    // Lines/hr = lines / (first order start → now), gives realistic rate across shift
+    // Projected Lines/Hr: lines completed so far / elapsed working hours
+    // Use at least 30 min of data before showing a rate (avoids crazy early-order spikes)
+    // Break time (50 min/day: 30 lunch + 2×10) is subtracted from session time
+    const BREAK_MS=50*60*1000; // 50 min in ms
     const allStarts=myOrders.map(o=>o.startTs).filter(Boolean);
     const firstStart=allStarts.length?Math.min(...allStarts):null;
-    const sessionMs=firstStart?(now-firstStart):0;
-    const lph=sessionMs>0&&lines>0?(lines/(sessionMs/3600000)).toFixed(1):null;
+    const rawSessionMs=firstStart?(now-firstStart):0;
+    // Subtract break time only after 3+ hours (breaks happen mid-shift)
+    const breakDeduct=rawSessionMs>3*3600000?BREAK_MS:0;
+    const sessionMs=Math.max(rawSessionMs-breakDeduct,rawSessionMs*0.5); // never reduce by more than half
+    // Require at least 30 min of session time before showing rate
+    const lph=(sessionMs>=30*60000&&lines>0)?(lines/(sessionMs/3600000)).toFixed(1):null;
     pmap[p.name]={name:p.name,shift:p.shift,orders:done.length,lines,lph,openOrd,isPicking:!!openOrd,timeOnOrder:openOrd?(now-openOrd.startTs):0};
   });
   let rows=Object.values(pmap);
@@ -1482,17 +1514,42 @@ window.renderDivisions=function(){
 function renderBackorder(){
   const list=ORDERS.filter(o=>o.status==='backorder').sort((a,b)=>b.startTs-a.startTs);
   const body=document.getElementById('backorderBody');
-  if(!list.length){body.innerHTML='<tr><td colspan="8" class="text-c text-muted" style="padding:28px">No back orders 🎉</td></tr>';return;}
+  if(!list.length){body.innerHTML='<tr><td colspan="9" class="text-c text-muted" style="padding:28px">No back orders 🎉</td></tr>';return;}
   body.innerHTML=list.map(o=>{
     const shorts=SHORTAGES.filter(s=>s.orderId===o.id);
-    return`<tr><td><input type="checkbox" id="boc_${o.id}" style="width:16px;height:16px;cursor:pointer"></td><td class="mono bold">${o.orderNum}</td><td>${divBadge(o.division)}</td><td>${o.pickerName}</td><td>${shiftBadge(o.shift)}</td><td>${o.date}</td><td>${shorts.map(s=>`<div class="text-xs"><strong>${s.product}</strong> · ${s.bin} · ${s.qty} · <span class="badge ${s.resolution==='located'?'bg-green':s.resolution==='backorder'?'bg-amber':'bg-gray'}">${s.resolution}</span></div>`).join('')||'—'}</td><td><button class="btn btn-success btn-xs" onclick="completeBackorder('${o.id}')">✓ Complete</button></td></tr>`;
+    return`<tr>
+      <td><input type="checkbox" id="boc_${o.id}" style="width:16px;height:16px;cursor:pointer"></td>
+      <td class="mono bold">${o.orderNum}</td>
+      <td>${divBadge(o.division)}</td>
+      <td>${o.pickerName}</td>
+      <td>${shiftBadge(o.shift)}</td>
+      <td>${o.date}</td>
+      <td>${shorts.map(s=>`<div class="text-xs"><strong>${s.product}</strong> · ${s.bin||'—'} · Qty: ${s.qty} · <span class="badge ${s.resolution==='located'?'bg-green':s.resolution==='backorder'?'bg-amber':'bg-gray'}">${s.resolution}</span></div>`).join('')||'—'}</td>
+      <td>
+        <select id="boRes_${o.id}" style="font-size:11px;padding:4px 7px;width:auto;min-width:160px">
+          <option value="">— Select outcome —</option>
+          <option value="located">✅ Items Located — Ship Complete</option>
+          <option value="ship_incomplete">⚠️ Ship Incomplete — Research Later</option>
+        </select>
+      </td>
+      <td><button class="btn btn-success btn-xs" onclick="completeBackorder('${o.id}')">✓ Complete</button></td>
+    </tr>`;
   }).join('');
 }
 
 window.completeBackorder=async function(orderId){
   const chk=document.getElementById('boc_'+orderId);
-  if(!chk||!chk.checked){alert('Please check the checkbox to confirm the back-order is fulfilled.');return;}
-  await updateDoc(doc(db,'orders',orderId),{status:'backorder_done',backorderDone:true});
+  if(!chk||!chk.checked){alert('Please check the checkbox to confirm this back-order has been resolved.');return;}
+  const resSel=document.getElementById('boRes_'+orderId);
+  const resolution=resSel?.value||'';
+  if(!resolution){alert('Please select an outcome: "Items Located" or "Ship Incomplete".');return;}
+  const newStatus=resolution==='ship_incomplete'?'ship_incomplete':'backorder_done';
+  await updateDoc(doc(db,'orders',orderId),{
+    status:newStatus,
+    backorderDone:true,
+    backorderResolution:resolution,
+    backorderResolvedAt:Date.now()
+  });
 };
 
 // ── SHORTAGES ────────────────────────────────────────
@@ -1598,7 +1655,7 @@ function renderOpen24(){
 // ── ARCHIVE ──────────────────────────────────────────
 let archPage=0; const PG=50;
 window.renderArchive=function(){
-  let list=ORDERS.filter(o=>o.status==='closed'||o.status==='backorder_done');
+  let list=ORDERS.filter(o=>o.status==='closed'||o.status==='backorder_done'||o.status==='ship_incomplete');
   const q=(document.getElementById('archSearch')?.value||'').toLowerCase();
   const pk=document.getElementById('archPicker')?.value||'';
   const dv=document.getElementById('archDiv')?.value||'';
@@ -1678,10 +1735,39 @@ function renderSettingsUsers(){
   if(!el)return;
   if(!names.length){el.innerHTML='<div class="text-xs text-muted">No saved names yet.</div>';return;}
   el.innerHTML=names.map((n,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px">👤 ${n}</span><button class="btn btn-ghost btn-xs" onclick="removeSavedName(${i})">Remove</button></div>`).join('');
+  // Show version info
+  const lv=document.getElementById('localVersionDisplay');
+  if(lv)lv.textContent=APP_VERSION;
+  // Fetch server version
+  getDocs(collection(db,'meta')).then(snap=>{
+    const meta=snap.docs.find(d=>d.id==='appVersion');
+    const sv=document.getElementById('serverVersionDisplay');
+    if(sv&&meta) sv.textContent=`Server version: ${meta.data().version}`;
+    else if(sv) sv.textContent='No server version set yet';
+  }).catch(()=>{});
 }
 
 window.removeSavedName=function(idx){
   const names=getSavedNames();names.splice(idx,1);localStorage.setItem('wpt_saved_names',JSON.stringify(names));renderSettingsUsers();renderSavedNames();
+};
+
+// ── FORCE REFRESH ────────────────────────────────────
+window.initiatePushVersion=function(){
+  requirePin('icm','🛡️ IC Manager PIN','Pushing a version update will reload the app for all users.',async()=>{
+    try{
+      // Write new version to Firestore — all clients will detect mismatch and reload
+      const newVer=APP_VERSION+'.'+Date.now();
+      const snap=await getDocs(collection(db,'meta'));
+      const existing=snap.docs.find(d=>d.id==='appVersion');
+      if(existing){
+        await updateDoc(doc(db,'meta','appVersion'),{version:newVer,pushedAt:Date.now()});
+      } else {
+        await addDoc(collection(db,'meta'),{version:newVer,pushedAt:Date.now()});
+      }
+      alert(`Version ${newVer} pushed. All users will reload on their next page load or within 60 seconds.`);
+      renderSettingsUsers();
+    }catch(e){alert('Error: '+e.message);}
+  });
 };
 
 // ── DARK MODE ────────────────────────────────────────
@@ -1792,6 +1878,12 @@ setInterval(()=>{
   if(pg==='pickers')renderPickers();
 },30000);
 
+// Poll for version updates every 60 seconds — auto-reload all clients when pushed
+setInterval(()=>{ checkVersion(); },60000);
+
+// ── APP VERSION (increment this to force all clients to reload) ──────────
+const APP_VERSION = '1.0.6';
+
 // ── BOOT ─────────────────────────────────────────────
 async function boot(){
   applyTheme();
@@ -1802,9 +1894,42 @@ async function boot(){
     document.getElementById('connStatus').innerHTML='<span class="conn-dot"></span>Connected';
     startListeners();
     document.getElementById('loadingOverlay').style.display='none';
+    // Check for version mismatch → force reload if server has newer version
+    checkVersion();
+    // Restore session if user was previously logged in this tab session
+    restoreSession();
   }catch(e){
     document.getElementById('loadingOverlay').innerHTML=`<div style="color:var(--red);font-size:14px;font-weight:600">⚠️ Firebase failed</div><div style="font-size:12px;max-width:300px;text-align:center;margin-top:8px;color:var(--text2)">${e.message}</div>`;
   }
+}
+
+function restoreSession(){
+  try{
+    const saved=sessionStorage.getItem('wpt_session');
+    if(saved){
+      const user=JSON.parse(saved);
+      currentUser=user;
+      document.getElementById('loginScreen').style.display='none';
+      document.getElementById('mainApp').style.display='block';
+      document.getElementById('userNameDisplay').textContent=user.name;
+      document.getElementById('userAvatar').textContent=user.initials||user.name.slice(0,2).toUpperCase();
+    }
+  }catch(e){}
+}
+
+async function checkVersion(){
+  try{
+    // Store version in Firestore meta collection — if server version differs, reload
+    const snap=await getDocs(collection(db,'meta'));
+    const meta=snap.docs.find(d=>d.id==='appVersion');
+    if(meta){
+      const serverVer=meta.data().version;
+      if(serverVer&&serverVer!==APP_VERSION){
+        console.log(`Version mismatch: local=${APP_VERSION} server=${serverVer}. Reloading.`);
+        window.location.reload(true);
+      }
+    }
+  }catch(e){}
 }
 boot();
 </script>
