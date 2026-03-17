@@ -626,7 +626,7 @@ tbody td{padding:8px 11px;font-size:12px}
 <script type="module">
 import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, doc, addDoc, updateDoc,
-         getDocs, onSnapshot, writeBatch }
+         getDocs, onSnapshot, writeBatch, deleteDoc }
                                from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ── CONFIG ───────────────────────────────────────────
@@ -1112,7 +1112,10 @@ window.renderOpenOrders=function(){
       <td>${o.lines||'—'}</td>
       <td>${sc>0?`<span class="badge bg-red">${sc}</span>`:'<span class="badge bg-gray">None</span>'}</td>
       <td>${statusBadgeOrder(o.status)}</td>
-      <td><button class="btn btn-ghost btn-xs" onclick="openEditOrder('${o.id}')">✏️ Edit</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-xs" onclick="openEditOrder('${o.id}')">✏️ Edit</button>
+        <button class="btn btn-danger btn-xs" style="margin-left:4px" onclick="initiateDeleteOrder('${o.id}','${o.orderNum.replace(/'/g,"\\'")}','${o.pickerName.replace(/'/g,"\\'")}')">🗑️</button>
+      </td>
     </tr>`;
   }).join('');
 };
@@ -1192,6 +1195,39 @@ window.saveEditOrder=async function(){
   }catch(e){alert('Error saving: '+e.message);}
   finally{btn.disabled=false;}
 };
+
+// ── DELETE ORDER ──────────────────────────────────────
+window.initiateDeleteOrder=function(orderId,orderNum,pickerName){
+  requirePin('icm','🗑️ IC Manager PIN Required',
+    `Delete ${orderNum} (${pickerName})? This requires the IC Manager PIN.`,
+    ()=>confirmDeleteOrder(orderId,orderNum,pickerName)
+  );
+};
+
+async function confirmDeleteOrder(orderId,orderNum,pickerName){
+  const o=ORDERS.find(x=>x.id===orderId);
+  const lines=o?.pickedLines||o?.lines||0;
+  const confirmed=confirm(
+    `⚠️ DELETE ORDER\n\n`+
+    `Order: ${orderNum}\n`+
+    `Picker: ${pickerName}\n`+
+    `Lines: ${lines}\n`+
+    `Status: ${o?.status||'—'}\n\n`+
+    `This will permanently remove this order and all associated shortages from the record. `+
+    `The picker's KPI will automatically update to reflect the removal.\n\n`+
+    `This cannot be undone. Continue?`
+  );
+  if(!confirmed)return;
+  try{
+    // Delete all shortages tied to this order first
+    const linked=SHORTAGES.filter(s=>s.orderId===orderId);
+    for(const s of linked) await deleteDoc(doc(db,'shortages',s.id));
+    // Delete the order itself
+    await deleteDoc(doc(db,'orders',orderId));
+  }catch(e){
+    alert('Error deleting order: '+e.message);
+  }
+}
 window.renderDashboard=function(){
   const p=document.getElementById('dashPeriod').value;
   const s=document.getElementById('dashShift').value;
@@ -1700,7 +1736,10 @@ window.renderArchive=function(){
       <td>${o.pickedLines||o.lines||'—'}</td>
       <td>${sc>0?`<span class="badge bg-amber">${sc}</span>`:'—'}</td>
       <td>${statusBadgeOrder(o.status)}</td>
-      <td><button class="btn btn-ghost btn-xs" onclick="openEditOrder('${o.id}')">✏️ Edit</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-xs" onclick="openEditOrder('${o.id}')">✏️ Edit</button>
+        <button class="btn btn-danger btn-xs" style="margin-left:4px" onclick="initiateDeleteOrder('${o.id}','${o.orderNum.replace(/'/g,"\\'")}','${o.pickerName.replace(/'/g,"\\'")}')">🗑️</button>
+      </td>
     </tr>`;
   }).join('')||'<tr><td colspan="12" class="text-c text-muted" style="padding:28px">No records</td></tr>';
   const pag=document.getElementById('archPag');
