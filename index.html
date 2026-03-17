@@ -901,25 +901,46 @@ async function doSubmit({orderNum,lines,pickerName,shift}){
     if(!ep){await addDoc(collection(db,'pickers'),{name:pickerName,shift,addedTs:now,lastActiveTs:now,archived:false});}
     else{await updateDoc(doc(db,'pickers',ep.id),{lastActiveTs:now});}
 
-    // Find open order – prevent duplicate
+    // Find open order for THIS picker – same order number, any date
     const openOrd=ORDERS.find(o=>o.orderNum===orderNum&&o.pickerName.toLowerCase()===norm&&o.status==='open');
     if(openOrd){
-      // Second scan → prompt shortage
+      if(openOrd.date!==todayStr()){
+        // Cross-day order: opened on a previous day — offer to close it now
+        // Update the order's date to today and treat as normal second scan → shortage prompt
+        await updateDoc(doc(db,'orders',openOrd.id),{date:todayStr(),resumedAt:now,resumedNote:`Resumed from ${openOrd.date}`});
+        const updatedOrd={...openOrd,date:todayStr()};
+        showSR('sr-open','📋 Order Resumed',`${orderNum} was started on ${openOrd.date} and is now being completed. Scan again to close.`);
+        clearScanForm();
+        return;
+      }
+      // Same-day second scan → prompt shortage
       showShortageModal(openOrd,now);
       return;
     }
 
-    // DUPLICATE CHECK: any non-archived order with same number already exists for today?
+    // DUPLICATE CHECK: completed today
     const existingToday=ORDERS.find(o=>o.orderNum===orderNum&&o.date===todayStr()&&o.status!=='open');
     if(existingToday){
       showSR('sr-warn','⚠️ Duplicate Order',`${orderNum} was already completed today. Order not created.`);
       clearScanForm();return;
     }
-    // Also check if open order already exists for a DIFFERENT picker (warn)
+    // Open by a DIFFERENT picker?
     const openOtherPicker=ORDERS.find(o=>o.orderNum===orderNum&&o.status==='open');
     if(openOtherPicker){
-      showSR('sr-warn','⚠️ Order Already Open',`${orderNum} is currently open for ${openOtherPicker.pickerName}. Cannot create duplicate.`);
-      clearScanForm();return;
+      // Could be a cross-shift handoff — offer to reassign
+      if(confirm(`⚠️ ${orderNum} is currently open for ${openOtherPicker.pickerName}.\n\nDo you want to reassign this order to ${pickerName} and continue?\n\n(This handles shift handoffs for large orders.)`)){
+        await updateDoc(doc(db,'orders',openOtherPicker.id),{
+          pickerName,shift,
+          reassignedFrom:openOtherPicker.pickerName,
+          reassignedAt:now,
+          date:todayStr()
+        });
+        showSR('sr-open','🔄 Order Reassigned',`${orderNum} transferred from ${openOtherPicker.pickerName} to ${pickerName}. Scan again to close.`);
+        clearScanForm();
+        return;
+      } else {
+        clearScanForm();return;
+      }
     }
 
     // Create new open order
@@ -1211,15 +1232,20 @@ window.renderDashboard=function(){
   SHORTAGES.forEach(s=>{const o=ORDERS.find(x=>x.id===s.orderId);if(o&&pm[o.pickerName])pm[o.pickerName].shorts+=s.qty;});
   document.getElementById('dashPickerBody').innerHTML=Object.entries(pm).sort((a,b)=>b[1].lines-a[1].lines).map(([n,d])=>{
     const avgL=d.orders>0?(d.lines/d.orders).toFixed(1):'—';
+    // Lines/hr: sum actual durations of completed orders only, with break deduction
     const BREAK_MS=50*60*1000;
-    let sessionMs=0;
-    if(d.starts.length){
-      const rawMs=Math.max(...(d.ends.length?d.ends:[Date.now()]))-Math.min(...d.starts);
-      const breakDeduct=rawMs>3*3600000?BREAK_MS:0;
-      sessionMs=Math.max(rawMs-breakDeduct,rawMs*0.5);
-    }
-    const avgT=sessionMs>0&&d.orders>0?fmtDur(sessionMs/d.orders):'—';
-    const lph=(sessionMs>=30*60000&&d.lines>0)?(d.lines/(sessionMs/3600000)).toFixed(1):'—';
+    let pickMs=0;
+    d.starts.forEach((_,i)=>{if(d.ends[i])pickMs+=(d.ends[i]-d.starts[i]);});
+    // Simpler: use parallel arrays - just sum (end-start) for each matched pair
+    // Actually d.starts/ends are pushed together so zip them
+    const pairs=Math.min(d.starts.length,d.ends.length);
+    pickMs=0;
+    const sortedStarts=d.starts.slice().sort((a,b)=>a-b);
+    const sortedEnds=d.ends.slice().sort((a,b)=>a-b);
+    for(let i=0;i<pairs;i++) pickMs+=(sortedEnds[i]-sortedStarts[i]);
+    if(pickMs>3*3600000) pickMs=Math.max(pickMs-BREAK_MS,pickMs*0.7);
+    const avgT=d.orders>0&&pickMs>0?fmtDur(pickMs/d.orders):'—';
+    const lph=(d.orders>=2||pickMs>=30*60000)&&d.lines>0?(d.lines/(pickMs/3600000)).toFixed(1):'—';
     return`<tr><td><strong>${n}</strong></td><td>${shiftBadge(d.shift)}</td><td>${d.orders}</td><td><strong>${d.lines}</strong></td><td>${avgL}</td><td>${avgT}</td><td><strong>${lph}</strong></td><td>${d.shorts>0?`<span class="badge bg-amber">${d.shorts}</span>`:'—'}</td></tr>`;
   }).join('')||'<tr><td colspan="8" class="text-c text-muted" style="padding:22px">No data</td></tr>';
 };
@@ -1283,17 +1309,12 @@ function pickerCardHTML(p,now,isDeactivated){
   const td=mine.filter(o=>o.date===todayStr());
   const tdL=td.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
   const totL=mine.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-  // Lines/hr with 50-min break deduction and 30-min minimum floor to avoid inflated early rates
+  // Lines/hr: sum actual pick durations of COMPLETED today orders only
   const BREAK_MS=50*60*1000;
-  const tdAll=ORDERS.filter(o=>o.pickerName===p.name&&o.date===todayStr());
-  const starts=tdAll.map(o=>o.startTs).filter(Boolean);
-  let sessionMs=0;
-  if(starts.length){
-    const rawMs=now-Math.min(...starts);
-    const breakDeduct=rawMs>3*3600000?BREAK_MS:0;
-    sessionMs=Math.max(rawMs-breakDeduct,rawMs*0.5);
-  }
-  const lph=(sessionMs>=30*60000&&tdL>0)?(tdL/(sessionMs/3600000)).toFixed(1):'—';
+  const completedToday=td.filter(o=>o.endTs&&o.startTs);
+  let pickMs=completedToday.reduce((a,o)=>a+(o.endTs-o.startTs),0);
+  if(pickMs>3*3600000) pickMs=Math.max(pickMs-BREAK_MS,pickMs*0.7);
+  const lph=(completedToday.length>=2||pickMs>=30*60000)&&tdL>0?(tdL/(pickMs/3600000)).toFixed(1):'—';
   const inact=!isDeactivated&&(now-p.lastActiveTs>30*86400000);
   const isPicking=ORDERS.some(o=>o.pickerName===p.name&&o.status==='open');
   const style=isDeactivated?'opacity:.55;':'';
@@ -1382,21 +1403,16 @@ window.renderLive=function(){
   const pmap={};
   activePickers.forEach(p=>{
     const myOrders=todayOrders.filter(o=>o.pickerName===p.name);
-    const done=myOrders.filter(o=>o.status!=='open');
+    const done=myOrders.filter(o=>o.status!=='open'&&o.endTs&&o.startTs);
     const openOrd=myOrders.find(o=>o.status==='open');
     const lines=done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-    // Projected Lines/Hr: lines completed so far / elapsed working hours
-    // Use at least 30 min of data before showing a rate (avoids crazy early-order spikes)
-    // Break time (50 min/day: 30 lunch + 2×10) is subtracted from session time
-    const BREAK_MS=50*60*1000; // 50 min in ms
-    const allStarts=myOrders.map(o=>o.startTs).filter(Boolean);
-    const firstStart=allStarts.length?Math.min(...allStarts):null;
-    const rawSessionMs=firstStart?(now-firstStart):0;
-    // Subtract break time only after 3+ hours (breaks happen mid-shift)
-    const breakDeduct=rawSessionMs>3*3600000?BREAK_MS:0;
-    const sessionMs=Math.max(rawSessionMs-breakDeduct,rawSessionMs*0.5); // never reduce by more than half
-    // Require at least 30 min of session time before showing rate
-    const lph=(sessionMs>=30*60000&&lines>0)?(lines/(sessionMs/3600000)).toFixed(1):null;
+    // Lines/hr: only count COMPLETED orders. Sum actual pick time (endTs-startTs).
+    // Subtract 50-min break allowance once total pick time exceeds 3 hours.
+    // Require at least 2 completed orders OR 30+ min of completed pick time before showing rate.
+    const BREAK_MS=50*60*1000;
+    let pickMs=done.reduce((a,o)=>a+(o.endTs-o.startTs),0);
+    if(pickMs>3*3600000) pickMs=Math.max(pickMs-BREAK_MS, pickMs*0.7);
+    const lph=(done.length>=2||pickMs>=30*60000)&&lines>0?(lines/(pickMs/3600000)).toFixed(1):null;
     pmap[p.name]={name:p.name,shift:p.shift,orders:done.length,lines,lph,openOrd,isPicking:!!openOrd,timeOnOrder:openOrd?(now-openOrd.startTs):0};
   });
   let rows=Object.values(pmap);
@@ -1630,16 +1646,17 @@ function showWmsPreview(){
 
 window.downloadWmsFile=function(){
   const pending=SHORTAGES.filter(s=>s.resolution==='pending');
-  if(!pending.length){closeModal('wmsModal');return;}
+  if(!pending.length){closeModal('wmsModal');alert('No pending shortages to export.');return;}
+  const XL=window.XLSX;
+  if(!XL){alert('Excel library not loaded. Please refresh the page and try again.');return;}
   const header=['Product Code','Location Prefix','Bin','Lot','Serial Number','Unit of Measure','Quantity Adjustment','Adjustment Code','Remark'];
   const rows=pending.map(s=>[s.product,s.division||'',s.bin||'','','','EA',-s.qty,'GenQtyAdj','Order Shortage Adjustment']);
-  const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
-  // Column widths
+  const ws=XL.utils.aoa_to_sheet([header,...rows]);
   ws['!cols']=[{wch:20},{wch:12},{wch:15},{wch:8},{wch:14},{wch:8},{wch:16},{wch:14},{wch:30}];
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,'Inventory Adjustment',ws);
+  const wb=XL.utils.book_new();
+  XL.utils.book_append_sheet(wb,'Inventory Adjustment',ws);
   const date=new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb,`WMS_Inventory_Adjustment_${date}.xlsx`);
+  XL.writeFile(wb,`WMS_Inventory_Adjustment_${date}.xlsx`);
   closeModal('wmsModal');
 };
 
@@ -1831,12 +1848,24 @@ window.showPrintPage=function(){
     <div style="margin-top:16px;font-size:10px;color:#8b93a7;text-align:center">Warehouse Pick Tracker · Built by Ruben Mendoza, IC Manager · ${new Date().toLocaleString()}</div>
   </div>`;
   setTimeout(()=>{
-    const lphD=names.map(n=>pm[n].ms>0?(pm[n].lines/(pm[n].ms/3600000)).toFixed(1):0);
+    const C=window.Chart;
+    if(!C)return;
+    // lph: use completed order durations (consistent with live floor)
+    const lphD=names.map(n=>{
+      const d=pm[n];
+      const BREAK_MS=50*60*1000;
+      const sortedS=d.starts.slice().sort((a,b)=>a-b);
+      const sortedE=d.ends.slice().sort((a,b)=>a-b);
+      const pairs=Math.min(sortedS.length,sortedE.length);
+      let pickMs=0;for(let i=0;i<pairs;i++)pickMs+=(sortedE[i]-sortedS[i]);
+      if(pickMs>3*3600000)pickMs=Math.max(pickMs-BREAK_MS,pickMs*0.7);
+      return (d.orders>=2||pickMs>=30*60000)&&d.lines>0?(d.lines/(pickMs/3600000)).toFixed(1):0;
+    });
     const lD=names.map(n=>pm[n].lines);
     const c1=document.getElementById('pc1')?.getContext('2d');
-    if(c1&&names.length)new Chart(c1,{type:'bar',data:{labels:names,datasets:[{label:'Total Lines Picked',data:lD,backgroundColor:'rgba(29,110,245,.7)',borderColor:'#1d6ef5',borderWidth:2,borderRadius:4}]},options:{responsive:false,plugins:{legend:{position:'top'},title:{display:true,text:'Total Lines Per Picker'}},scales:{y:{beginAtZero:true}}}});
+    if(c1&&names.length)new C(c1,{type:'bar',data:{labels:names,datasets:[{label:'Total Lines Picked',data:lD,backgroundColor:'rgba(29,110,245,.7)',borderColor:'#1d6ef5',borderWidth:2,borderRadius:4}]},options:{responsive:false,plugins:{legend:{position:'top'},title:{display:true,text:'Total Lines Per Picker'}},scales:{y:{beginAtZero:true}}}});
     const c2=document.getElementById('pc2')?.getContext('2d');
-    if(c2&&names.length)new Chart(c2,{type:'bar',data:{labels:names,datasets:[{label:'Lines Per Hour',data:lphD,backgroundColor:'rgba(22,163,74,.7)',borderColor:'#16a34a',borderWidth:2,borderRadius:4}]},options:{responsive:false,plugins:{legend:{position:'top'},title:{display:true,text:'Lines Per Hour Per Picker'}},scales:{y:{beginAtZero:true}}}});
+    if(c2&&names.length)new C(c2,{type:'bar',data:{labels:names,datasets:[{label:'Lines Per Hour',data:lphD,backgroundColor:'rgba(22,163,74,.7)',borderColor:'#16a34a',borderWidth:2,borderRadius:4}]},options:{responsive:false,plugins:{legend:{position:'top'},title:{display:true,text:'Lines Per Hour Per Picker'}},scales:{y:{beginAtZero:true}}}});
   },150);
 };
 
