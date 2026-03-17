@@ -115,7 +115,16 @@ tbody td{padding:8px 11px;font-size:12px}
 .filter-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:11px}.filter-row input,.filter-row select{width:auto;flex:1;min-width:120px}
 .section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px}
 ::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
-@media(max-width:768px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}.main{padding:10px}.picker-stats{grid-template-columns:1fr 1fr}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.live-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px;position:relative;transition:box-shadow .2s}
+.live-card.picking{border-color:var(--green);box-shadow:0 0 0 2px rgba(22,163,74,.15)}
+.live-card.idle{opacity:.75}
+.live-rank{position:absolute;top:10px;right:10px;font-size:18px;font-weight:800;color:var(--border2)}
+.live-name{font-size:14px;font-weight:700;margin-bottom:2px}
+.live-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+.ls-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3)}
+.ls-value{font-size:16px;font-weight:700}
+@media(max-width:768px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}.main{padding:10px}.picker-stats{grid-template-columns:1fr 1fr}.live-stats{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -170,6 +179,7 @@ tbody td{padding:8px 11px;font-size:12px}
 
 <div class="nav-tabs">
   <div class="nav-tab active" onclick="showPage('scan',this)">📷 Scan</div>
+  <div class="nav-tab" onclick="showPage('live',this)">🟢 Live Floor <span class="nav-badge" id="bLive" style="display:none"></span></div>
   <div class="nav-tab" onclick="showPage('open-orders',this)">📋 Open Orders <span class="nav-badge" id="bOpen" style="display:none"></span></div>
   <div class="nav-tab" onclick="showPage('dashboard',this)">📊 Dashboard</div>
   <div class="nav-tab" onclick="showPage('pickers',this)">👷 Pickers</div>
@@ -192,8 +202,18 @@ tbody td{padding:8px 11px;font-size:12px}
       <div class="card-body">
         <div class="form-group"><label>Order Number</label><input class="big" type="text" id="scanOrder" placeholder="Scan or type order #" autocomplete="off" autofocus></div>
         <div class="form-group"><label>Lines on Order</label><input type="number" id="scanLines" placeholder="# of lines" min="1" style="font-size:15px;padding:10px 12px"></div>
-        <div class="form-group"><label>Picker Name</label><input type="text" id="scanPicker" list="pickerList" placeholder="Name or scan badge" autocomplete="off"><datalist id="pickerList"></datalist></div>
-        <div class="form-group"><label>Shift</label><select id="scanShift"><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select></div>
+        <div class="form-group">
+          <label>Shift</label>
+          <select id="scanShift" onchange="refreshPickerDropdown()"><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select>
+        </div>
+        <div class="form-group">
+          <label>Picker Name</label>
+          <div style="position:relative">
+            <input type="text" id="scanPicker" placeholder="Select or type name…" autocomplete="off" oninput="filterPickerDropdown()" onfocus="showPickerDropdown()" onblur="hidePickerDropdownDelayed()">
+            <div id="pickerDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);z-index:200;max-height:200px;overflow-y:auto;margin-top:2px"></div>
+          </div>
+          <datalist id="pickerList"></datalist>
+        </div>
         <button class="btn btn-primary btn-lg" style="width:100%" id="submitBtn" onclick="processOrder()">✅ Submit</button>
         <div id="scanResult" class="scan-result"></div>
       </div>
@@ -201,6 +221,71 @@ tbody td{padding:8px 11px;font-size:12px}
     <div class="card">
       <div class="card-header"><div class="card-title">Today's Activity</div></div>
       <div class="card-body" style="padding:0"><div id="todayFeed" style="max-height:460px;overflow-y:auto"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- LIVE FLOOR -->
+<div class="page" id="page-live">
+  <div class="flex-c j-between mb-12 gap-8" style="flex-wrap:wrap">
+    <div>
+      <div class="section-title" style="margin:0">🟢 Live Floor — Today's Activity</div>
+      <div id="liveShiftLabel" class="text-xs text-muted" style="margin-top:2px"></div>
+    </div>
+    <div class="flex gap-8">
+      <select id="liveShiftF" onchange="renderLive()" class="w-auto">
+        <option value="">All Shifts</option>
+        <option value="1st">1st Shift (6am–3:30pm)</option>
+        <option value="2nd">2nd Shift (3:30pm–12am)</option>
+        <option value="OT">Weekend OT (7am–3pm)</option>
+      </select>
+      <select id="liveSortF" onchange="renderLive()" class="w-auto">
+        <option value="lines">Sort: Lines ↓</option>
+        <option value="orders">Sort: Orders ↓</option>
+        <option value="lph">Sort: Lines/Hr ↓</option>
+        <option value="name">Sort: Name A–Z</option>
+      </select>
+      <div id="liveAutoRefresh" class="text-xs text-muted flex-c gap-6" style="padding:4px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm)">
+        <span class="conn-dot" style="animation:pulse 2s infinite"></span> Live
+      </div>
+    </div>
+  </div>
+
+  <!-- Shift summary strip -->
+  <div class="grid-4 mb-14" id="liveShiftStats"></div>
+
+  <!-- Active (in open order right now) -->
+  <div class="mb-14" id="liveActivePickers">
+    <div class="section-title mb-8" style="color:var(--green)">🟢 Currently Picking</div>
+    <div id="liveActiveGrid" class="grid-auto"></div>
+  </div>
+
+  <!-- Full today table -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Today's Picker Stats</div>
+      <input type="text" id="liveSearch" placeholder="🔍 Filter by name…" oninput="renderLive()" style="width:180px;font-size:12px;padding:5px 10px">
+    </div>
+    <div class="card-body" style="padding:0">
+      <div class="table-wrap">
+        <table id="liveTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th onclick="setLiveSort('name')" style="cursor:pointer">Picker ↕</th>
+              <th>Shift</th>
+              <th>Status</th>
+              <th onclick="setLiveSort('orders')" style="cursor:pointer">Orders ↕</th>
+              <th onclick="setLiveSort('lines')" style="cursor:pointer">Lines ↕</th>
+              <th>Avg Lines/Order</th>
+              <th onclick="setLiveSort('lph')" style="cursor:pointer">Lines/Hr ↕</th>
+              <th>Current Order</th>
+              <th>Time on Order</th>
+            </tr>
+          </thead>
+          <tbody id="liveTableBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
@@ -241,8 +326,42 @@ tbody td{padding:8px 11px;font-size:12px}
 
 <!-- PICKERS -->
 <div class="page" id="page-pickers">
-  <div class="flex-c j-between mb-16"><div class="section-title" style="margin:0">Picker Roster</div><button class="btn btn-primary btn-sm" onclick="openModal('addPickerModal')">+ Add Picker</button></div>
-  <div class="grid-auto" id="pickersGrid"></div>
+  <div class="flex-c j-between mb-12" style="flex-wrap:wrap;gap:8px">
+    <div>
+      <div class="section-title" style="margin:0">Picker Roster</div>
+      <div id="pickerRosterShiftNote" class="text-xs text-muted" style="margin-top:2px"></div>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="openModal('addPickerModal')">+ Add Picker</button>
+  </div>
+
+  <!-- 1st Shift section -->
+  <div id="shift1stSection" class="mb-20">
+    <div class="flex-c gap-8 mb-10">
+      <div style="font-size:13px;font-weight:700;color:var(--accent)">🌅 1st Shift</div>
+      <span class="badge bg-blue" style="font-size:10px">6:00am – 3:30pm</span>
+      <span id="shift1stCount" class="badge bg-gray"></span>
+    </div>
+    <div class="grid-auto" id="pickersGrid1st"></div>
+  </div>
+
+  <!-- 2nd Shift section -->
+  <div id="shift2ndSection" class="mb-20">
+    <div class="flex-c gap-8 mb-10">
+      <div style="font-size:13px;font-weight:700;color:var(--purple)">🌙 2nd Shift</div>
+      <span class="badge bg-purple" style="font-size:10px">3:30pm – 12:00am</span>
+      <span id="shift2ndCount" class="badge bg-gray"></span>
+    </div>
+    <div class="grid-auto" id="pickersGrid2nd"></div>
+  </div>
+
+  <!-- Deactivated section -->
+  <div id="deactivatedSection" style="display:none">
+    <div class="flex-c gap-8 mb-10">
+      <div style="font-size:12px;font-weight:700;color:var(--text3)">⛔ Deactivated</div>
+      <span id="deactivatedCount" class="badge bg-gray"></span>
+    </div>
+    <div class="grid-auto" id="deactivatedGrid"></div>
+  </div>
 </div>
 
 <!-- DIVISIONS -->
@@ -466,6 +585,18 @@ tbody td{padding:8px 11px;font-size:12px}
       <div class="form-group"><label>Default Shift</label><select id="newPickerShift"><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select></div>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('addPickerModal')">Cancel</button><button class="btn btn-primary" id="savePickerBtn" onclick="savePicker()">Add Picker</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay modal-sm" id="editPickerModal">
+  <div class="modal"><div class="modal-head"><div class="modal-title">✏️ Edit Picker</div><span class="modal-x" onclick="closeModal('editPickerModal')">×</span></div>
+    <div class="modal-body">
+      <input type="hidden" id="editPickerId">
+      <input type="hidden" id="editPickerOldName">
+      <div class="form-group"><label>Full Name</label><input type="text" id="editPickerName" placeholder="First Last"></div>
+      <div class="form-group"><label>Shift</label><select id="editPickerShift"><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('editPickerModal')">Cancel</button><button class="btn btn-primary" id="editPickerSaveBtn" onclick="saveEditPicker()">Save Changes</button></div>
   </div>
 </div>
 
@@ -723,9 +854,10 @@ function startListeners(){
     renderTodayFeed();updateBadges();
     const pg=activePage();
     if(pg==='dashboard')renderDashboard();if(pg==='open-orders')renderOpenOrders();if(pg==='divisions')renderDivisions();if(pg==='open24')renderOpen24();if(pg==='archive')renderArchive();if(pg==='backorder')renderBackorder();
+    if(pg==='live')renderLive();if(pg==='pickers')renderPickers();
   });
   onSnapshot(collection(db,'pickers'),snap=>{
-    PICKERS=snap.docs.map(d=>{const x=d.data();return{id:d.id,name:x.name,shift:x.shift,addedTs:tsMs(x.addedTs),lastActiveTs:tsMs(x.lastActiveTs),archived:x.archived||false}});
+    PICKERS=snap.docs.map(d=>{const x=d.data();return{id:d.id,name:x.name,shift:x.shift,addedTs:tsMs(x.addedTs),lastActiveTs:tsMs(x.lastActiveTs),archived:x.archived||false,deactivated:x.deactivated||false}});
     refreshDatalist();populateArchPickers();updateBadges();
     const pg=activePage();if(pg==='pickers')renderPickers();if(pg==='alerts')renderAlerts();
   });
@@ -772,7 +904,7 @@ async function doSubmit({orderNum,lines,pickerName,shift}){
   try{
     // Upsert picker
     const ep=PICKERS.find(p=>p.name.toLowerCase()===norm);
-    if(!ep){await addDoc(collection(db,'pickers'),{name:pickerName,shift,addedTs:now,lastActiveTs:now,archived:false});}
+    if(!ep){await addDoc(collection(db,'pickers'),{name:pickerName,shift,addedTs:now,lastActiveTs:now,archived:false,deactivated:false});}
     else{await updateDoc(doc(db,'pickers',ep.id),{lastActiveTs:now});}
 
     // Find open order – prevent duplicate
@@ -980,8 +1112,10 @@ window.renderDashboard=function(){
   const dt={};done.forEach(o=>{const k=o.division||'UNK';dt[k]=(dt[k]||0)+(o.pickedLines||o.lines||0);});
   const mxD=Math.max(...Object.values(dt),1);
   document.getElementById('dashDivBreak').innerHTML=Object.entries(dt).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="div-bar"><div class="div-bar-head"><div class="div-bar-label">${DIV[k]?.name||k}</div><div>${v}</div></div><div class="div-bar-track"><div class="div-bar-fill" style="width:${(v/mxD)*100}%;background:${DIV[k]?.color||'#8b93a7'}"></div></div></div>`).join('')||'<div class="text-muted text-xs">No data</div>';
+  const deactivatedNames=new Set(PICKERS.filter(p=>p.deactivated).map(p=>p.name));
   const pm={};
   orders.forEach(o=>{
+    if(deactivatedNames.has(o.pickerName))return; // skip deactivated pickers
     if(!pm[o.pickerName])pm[o.pickerName]={shift:o.shift,orders:0,lines:0,ms:0,cnt:0,shorts:0};
     if(o.status!=='open'){pm[o.pickerName].orders++;pm[o.pickerName].lines+=(o.pickedLines||o.lines||0);if(o.endTs&&o.startTs){pm[o.pickerName].ms+=(o.endTs-o.startTs);pm[o.pickerName].cnt++;}}
   });
@@ -994,30 +1128,341 @@ window.renderDashboard=function(){
   }).join('')||'<tr><td colspan="8" class="text-c text-muted" style="padding:22px">No data</td></tr>';
 };
 
+// ── SHIFT DETECTION ──────────────────────────────────
+// 1st shift: 6:00am – 3:30pm  (360 – 930 minutes since midnight)
+// 2nd shift: 3:30pm – 12:00am (930 – 1440 minutes)
+// Weekend OT: Sat/Sun 7:00am – 3:00pm (420 – 900 minutes)
+function getCurrentShift(){
+  const now=new Date();
+  const mins=now.getHours()*60+now.getMinutes();
+  const dow=now.getDay(); // 0=Sun, 6=Sat
+  const isWeekend=(dow===0||dow===6);
+  if(isWeekend&&mins>=420&&mins<900) return 'OT';
+  if(mins>=360&&mins<930) return '1st';
+  if(mins>=930) return '2nd';
+  return '2nd'; // after midnight, pre-6am → tail of 2nd
+}
+
+function getUpcomingShift(){
+  const s=getCurrentShift();
+  if(s==='1st') return '2nd';
+  if(s==='2nd') return '1st';
+  return '1st';
+}
+
+function shiftLabel(s){
+  if(s==='1st') return '1st Shift (6:00am – 3:30pm)';
+  if(s==='2nd') return '2nd Shift (3:30pm – 12:00am)';
+  if(s==='OT')  return 'Weekend OT (7:00am – 3:00pm)';
+  return s;
+}
+
 // ── PICKERS ──────────────────────────────────────────
 function renderPickers(){
-  const active=PICKERS.filter(p=>!p.archived);
   const now=Date.now();
-  const el=document.getElementById('pickersGrid');
-  if(!active.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">👷</div><div class="empty-title">No pickers yet</div></div>';return;}
-  el.innerHTML=active.map(p=>{
-    const mine=ORDERS.filter(o=>o.pickerName===p.name&&o.status!=='open');
-    const td=mine.filter(o=>o.date===todayStr());
-    const tdL=td.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-    const totL=mine.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-    let ms=0;mine.forEach(o=>{if(o.endTs&&o.startTs)ms+=(o.endTs-o.startTs);});
-    const lph=ms>0&&totL>0?(totL/(ms/3600000)).toFixed(1):'—';
-    const inact=now-p.lastActiveTs>30*86400000;
-    return`<div class="picker-card"><div class="picker-name">${p.name}</div><div class="text-xs text-muted">Since ${fmtDate(p.addedTs)}</div><div class="picker-shift">${shiftBadge(p.shift)}</div>${inact?'<div class="badge bg-amber" style="margin-top:5px">⚠️ Inactive 30d+</div>':''}<div class="picker-stats"><div><div class="ps-label">Today Lines</div><div class="ps-value">${tdL}</div></div><div><div class="ps-label">Total Lines</div><div class="ps-value">${totL}</div></div><div><div class="ps-label">Lines/Hr</div><div class="ps-value">${lph}</div></div><div><div class="ps-label">Today Orders</div><div class="ps-value">${td.length}</div></div><div><div class="ps-label">Total Orders</div><div class="ps-value">${mine.length}</div></div><div><div class="ps-label">Last Active</div><div class="ps-value" style="font-size:10px">${fmtDate(p.lastActiveTs)}</div></div></div></div>`;
+  const currentShift=getCurrentShift();
+  const active=PICKERS.filter(p=>!p.archived&&!p.deactivated);
+  const deactivated=PICKERS.filter(p=>!p.archived&&p.deactivated);
+
+  // Determine which shift goes on top
+  // Current shift on top, upcoming shift below
+  const topShift = (currentShift==='OT') ? '1st' : currentShift;
+  const bottomShift = topShift==='1st' ? '2nd' : '1st';
+
+  const note = document.getElementById('pickerRosterShiftNote');
+  if(note) note.textContent = `Current shift: ${shiftLabel(currentShift)} · Active shift shown first`;
+
+  // Reorder DOM sections so current shift is first
+  const s1sec=document.getElementById('shift1stSection');
+  const s2sec=document.getElementById('shift2ndSection');
+  const parent=s1sec?.parentNode;
+  if(parent&&topShift==='2nd'){
+    parent.insertBefore(s2sec,s1sec);
+  } else if(parent&&topShift==='1st'){
+    parent.insertBefore(s1sec,s2sec);
+  }
+
+  // Render 1st shift
+  const s1=active.filter(p=>p.shift==='1st');
+  document.getElementById('shift1stCount').textContent=`${s1.length} picker${s1.length!==1?'s':''}`;
+  document.getElementById('pickersGrid1st').innerHTML=
+    s1.length ? s1.map(p=>pickerCardHTML(p,now,false)).join('') :
+    '<div class="text-xs text-muted" style="padding:12px">No 1st shift pickers</div>';
+
+  // Render 2nd shift
+  const s2=active.filter(p=>p.shift==='2nd');
+  document.getElementById('shift2ndCount').textContent=`${s2.length} picker${s2.length!==1?'s':''}`;
+  document.getElementById('pickersGrid2nd').innerHTML=
+    s2.length ? s2.map(p=>pickerCardHTML(p,now,false)).join('') :
+    '<div class="text-xs text-muted" style="padding:12px">No 2nd shift pickers</div>';
+
+  // Deactivated
+  const deactSec=document.getElementById('deactivatedSection');
+  const deactEl=document.getElementById('deactivatedGrid');
+  const deactCount=document.getElementById('deactivatedCount');
+  if(deactivated.length){
+    deactSec.style.display='block';
+    deactCount.textContent=`${deactivated.length} picker${deactivated.length!==1?'s':''}`;
+    deactEl.innerHTML=deactivated.map(p=>pickerCardHTML(p,now,true)).join('');
+  } else {
+    deactSec.style.display='none';
+  }
+}
+
+function pickerCardHTML(p,now,isDeactivated){
+  const mine=ORDERS.filter(o=>o.pickerName===p.name&&o.status!=='open');
+  const td=mine.filter(o=>o.date===todayStr());
+  const tdL=td.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+  const totL=mine.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+  let ms=0;mine.forEach(o=>{if(o.endTs&&o.startTs)ms+=(o.endTs-o.startTs);});
+  const lph=ms>0&&totL>0?(totL/(ms/3600000)).toFixed(1):'—';
+  const inact=!isDeactivated&&(now-p.lastActiveTs>30*86400000);
+  const isCurrentlyPicking=ORDERS.some(o=>o.pickerName===p.name&&o.status==='open');
+  const cardStyle=isDeactivated?'opacity:.55;':'';
+  const pickingIndicator=(!isDeactivated&&isCurrentlyPicking)?'<span class="badge bg-green" style="margin-left:6px;font-size:9px;animation:pulse 2s infinite">● PICKING</span>':'';
+  return`<div class="picker-card" style="${cardStyle}">
+    <div class="picker-name">${p.name}${isDeactivated?'<span class="badge bg-gray" style="margin-left:6px;font-size:9px">DEACTIVATED</span>':''}${pickingIndicator}</div>
+    <div class="text-xs text-muted">Since ${fmtDate(p.addedTs)}</div>
+    <div class="picker-shift">${shiftBadge(p.shift)}</div>
+    ${inact?'<div class="badge bg-amber" style="margin-top:5px">⚠️ Inactive 30d+</div>':''}
+    <div class="picker-stats">
+      <div><div class="ps-label">Today Lines</div><div class="ps-value">${isDeactivated?'—':tdL}</div></div>
+      <div><div class="ps-label">Total Lines</div><div class="ps-value">${totL}</div></div>
+      <div><div class="ps-label">Lines/Hr</div><div class="ps-value">${lph}</div></div>
+      <div><div class="ps-label">Today Orders</div><div class="ps-value">${isDeactivated?'—':td.length}</div></div>
+      <div><div class="ps-label">Total Orders</div><div class="ps-value">${mine.length}</div></div>
+      <div><div class="ps-label">Last Active</div><div class="ps-value" style="font-size:10px">${fmtDate(p.lastActiveTs)}</div></div>
+    </div>
+    <div class="flex gap-6" style="margin-top:10px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-xs" onclick="openEditPicker('${p.id}')">✏️ Edit</button>
+      ${isDeactivated
+        ? `<button class="btn btn-xs btn-success" onclick="toggleDeactivatePicker('${p.id}',false)">✅ Reactivate</button>`
+        : `<button class="btn btn-xs btn-danger" onclick="confirmDeactivate('${p.id}','${p.name.replace(/'/g,"\\'")}')">⛔ Deactivate</button>`}
+    </div>
+  </div>`;
+}
+
+// ── LIVE FLOOR ────────────────────────────────────────
+let liveSortField='lines';
+window.setLiveSort=function(f){liveSortField=f;document.getElementById('liveSortF').value=f;renderLive();};
+
+window.renderLive=function(){
+  const shiftF=document.getElementById('liveShiftF')?.value||'';
+  const search=(document.getElementById('liveSearch')?.value||'').toLowerCase();
+  const sortF=document.getElementById('liveSortF')?.value||liveSortField;
+  liveSortField=sortF;
+
+  const now=Date.now();
+  const currentShift=getCurrentShift();
+
+  // Update shift label
+  const lbl=document.getElementById('liveShiftLabel');
+  if(lbl) lbl.textContent=`Current: ${shiftLabel(currentShift)} · Next: ${shiftLabel(getUpcomingShift())}`;
+
+  // Set default filter to current shift if none selected
+  const effectiveShift=shiftF||currentShift;
+  if(document.getElementById('liveShiftF')&&!shiftF){
+    // Don't force-select, just use for display logic
+  }
+
+  // Build per-picker stats for TODAY
+  const todayOrders=ORDERS.filter(o=>o.date===todayStr());
+  const activePickers=PICKERS.filter(p=>!p.archived&&!p.deactivated);
+
+  // Build map: pickerName → stats
+  const pmap={};
+  activePickers.forEach(p=>{
+    const myOrders=todayOrders.filter(o=>o.pickerName===p.name);
+    const done=myOrders.filter(o=>o.status!=='open');
+    const openOrd=myOrders.find(o=>o.status==='open');
+    let ms=0; done.forEach(o=>{if(o.endTs&&o.startTs)ms+=(o.endTs-o.startTs);});
+    const lines=done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+    const lph=ms>0&&lines>0?(lines/(ms/3600000)).toFixed(1):null;
+    pmap[p.name]={
+      name:p.name, shift:p.shift, orders:done.length, lines,
+      lph, ms, openOrd,
+      isPicking:!!openOrd,
+      timeOnOrder:openOrd?(now-openOrd.startTs):0
+    };
+  });
+
+  let rows=Object.values(pmap);
+  if(shiftF) rows=rows.filter(r=>r.shift===shiftF);
+  if(search) rows=rows.filter(r=>r.name.toLowerCase().includes(search));
+
+  // Sort
+  rows.sort((a,b)=>{
+    if(sortF==='lines') return b.lines-a.lines;
+    if(sortF==='orders') return b.orders-a.orders;
+    if(sortF==='lph') return (parseFloat(b.lph)||0)-(parseFloat(a.lph)||0);
+    if(sortF==='name') return a.name.localeCompare(b.name);
+    return b.lines-a.lines;
+  });
+
+  // Shift summary strip — show both shifts
+  const s1rows=Object.values(pmap).filter(r=>r.shift==='1st');
+  const s2rows=Object.values(pmap).filter(r=>r.shift==='2nd');
+  const s1lines=s1rows.reduce((a,r)=>a+r.lines,0);
+  const s2lines=s2rows.reduce((a,r)=>a+r.lines,0);
+  const s1picking=s1rows.filter(r=>r.isPicking).length;
+  const s2picking=s2rows.filter(r=>r.isPicking).length;
+  const s1lph=s1rows.length?s1rows.reduce((a,r)=>a+(parseFloat(r.lph)||0),0)/s1rows.filter(r=>r.lph).length||0:0;
+  const s2lph=s2rows.length?s2rows.reduce((a,r)=>a+(parseFloat(r.lph)||0),0)/s2rows.filter(r=>r.lph).length||0:0;
+
+  // Show current shift first in summary
+  const isCurrentFirst=currentShift!=='2nd';
+  const summaryHTML=`
+    ${[
+      {label:'🌅 1st Shift',lines:s1lines,picking:s1picking,total:s1rows.length,lph:s1lph.toFixed(1),isCurrent:currentShift==='1st'},
+      {label:'🌙 2nd Shift',lines:s2lines,picking:s2picking,total:s2rows.length,lph:s2lph.toFixed(1),isCurrent:currentShift==='2nd'},
+    ].sort((a,b)=>b.isCurrent-a.isCurrent).map(s=>`
+      <div class="stat-card ${s.isCurrent?'c-green':'c-accent'}" style="${s.isCurrent?'border-width:2px':''}">
+        <div class="stat-label">${s.label}${s.isCurrent?' <span style="color:var(--green);font-size:9px">● ACTIVE</span>':''}</div>
+        <div class="stat-value">${s.lines}</div>
+        <div class="stat-sub">${s.picking} picking now · ${s.total} pickers · ${s.lph} lines/hr avg</div>
+      </div>`).join('')}
+    <div class="stat-card c-accent">
+      <div class="stat-label">Total Today</div>
+      <div class="stat-value">${s1lines+s2lines}</div>
+      <div class="stat-sub">${s1rows.length+s2rows.length} pickers tracked</div>
+    </div>
+    <div class="stat-card c-amber">
+      <div class="stat-label">Currently Picking</div>
+      <div class="stat-value">${s1picking+s2picking}</div>
+      <div class="stat-sub">active orders open now</div>
+    </div>
+  `;
+  document.getElementById('liveShiftStats').innerHTML=summaryHTML;
+
+  // Currently picking cards (top section)
+  const pickingNow=rows.filter(r=>r.isPicking);
+  const activeGrid=document.getElementById('liveActiveGrid');
+  if(!pickingNow.length){
+    activeGrid.innerHTML='<div class="text-xs text-muted" style="padding:10px 0">No pickers currently on an active order.</div>';
+  } else {
+    activeGrid.innerHTML=pickingNow.map(r=>{
+      const elapsed=r.timeOnOrder>0?fmtDur(r.timeOnOrder):'just started';
+      return`<div class="live-card picking">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div>
+            <div class="live-name">${r.name}</div>
+            <div class="text-xs text-muted">${shiftBadge(r.shift)} · on order ${r.openOrd?.orderNum||'—'} for ${elapsed}</div>
+          </div>
+          <span class="badge bg-green" style="animation:pulse 2s infinite;flex-shrink:0">● PICKING</span>
+        </div>
+        <div class="live-stats">
+          <div><div class="ls-label">Today Lines</div><div class="ls-value">${r.lines}</div></div>
+          <div><div class="ls-label">Orders Done</div><div class="ls-value">${r.orders}</div></div>
+          <div><div class="ls-label">Lines/Hr</div><div class="ls-value">${r.lph||'—'}</div></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Full table
+  const tbody=document.getElementById('liveTableBody');
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="10" class="text-c text-muted" style="padding:24px">No pickers found for this filter</td></tr>';
+    return;
+  }
+  tbody.innerHTML=rows.map((r,i)=>{
+    const statusBadge=r.isPicking?'<span class="badge bg-green" style="animation:pulse 2s infinite">● Picking</span>':r.orders>0?'<span class="badge bg-gray">Done</span>':'<span class="badge bg-gray">—</span>';
+    const currentOrd=r.isPicking&&r.openOrd?`<span class="mono" style="font-size:11px">${r.openOrd.orderNum}</span>`:'—';
+    const elapsed=r.isPicking&&r.timeOnOrder>0?`<span style="color:${r.timeOnOrder>1800000?'var(--amber)':'var(--text2)'};">${fmtDur(r.timeOnOrder)}</span>`:'—';
+    const avgL=r.orders>0?(r.lines/r.orders).toFixed(1):'—';
+    return`<tr style="${r.isPicking?'background:var(--green-light)':''}">
+      <td class="text-muted bold" style="width:30px">${i+1}</td>
+      <td><strong>${r.name}</strong></td>
+      <td>${shiftBadge(r.shift)}</td>
+      <td>${statusBadge}</td>
+      <td>${r.orders}</td>
+      <td><strong>${r.lines}</strong></td>
+      <td>${avgL}</td>
+      <td><strong>${r.lph||'—'}</strong></td>
+      <td>${currentOrd}</td>
+      <td>${elapsed}</td>
+    </tr>`;
   }).join('');
+};
+
+function pickerCardHTML(p,now,isDeactivated){
+  const mine=ORDERS.filter(o=>o.pickerName===p.name&&o.status!=='open');
+  const td=mine.filter(o=>o.date===todayStr());
+  const tdL=td.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+  const totL=mine.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+  let ms=0;mine.forEach(o=>{if(o.endTs&&o.startTs)ms+=(o.endTs-o.startTs);});
+  const lph=ms>0&&totL>0?(totL/(ms/3600000)).toFixed(1):'—';
+  const inact=!isDeactivated&&(now-p.lastActiveTs>30*86400000);
+  const cardStyle=isDeactivated?'opacity:.55;':'';
+  return`<div class="picker-card" style="${cardStyle}">
+    <div class="picker-name">${p.name}${isDeactivated?'<span class="badge bg-gray" style="margin-left:6px;font-size:9px">DEACTIVATED</span>':''}</div>
+    <div class="text-xs text-muted">Since ${fmtDate(p.addedTs)}</div>
+    <div class="picker-shift">${shiftBadge(p.shift)}</div>
+    ${inact?'<div class="badge bg-amber" style="margin-top:5px">⚠️ Inactive 30d+</div>':''}
+    <div class="picker-stats">
+      <div><div class="ps-label">Today Lines</div><div class="ps-value">${isDeactivated?'—':tdL}</div></div>
+      <div><div class="ps-label">Total Lines</div><div class="ps-value">${totL}</div></div>
+      <div><div class="ps-label">Lines/Hr</div><div class="ps-value">${lph}</div></div>
+      <div><div class="ps-label">Today Orders</div><div class="ps-value">${isDeactivated?'—':td.length}</div></div>
+      <div><div class="ps-label">Total Orders</div><div class="ps-value">${mine.length}</div></div>
+      <div><div class="ps-label">Last Active</div><div class="ps-value" style="font-size:10px">${fmtDate(p.lastActiveTs)}</div></div>
+    </div>
+    <div class="flex gap-6" style="margin-top:10px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-xs" onclick="openEditPicker('${p.id}')">✏️ Edit</button>
+      ${isDeactivated
+        ? `<button class="btn btn-xs btn-success" onclick="toggleDeactivatePicker('${p.id}',false)">✅ Reactivate</button>`
+        : `<button class="btn btn-xs btn-danger" onclick="confirmDeactivate('${p.id}','${p.name.replace(/'/g,"\\'")}')">⛔ Deactivate</button>`}
+    </div>
+  </div>`;
 }
 
 window.savePicker=async function(){
   const name=document.getElementById('newPickerName').value.trim();
   if(!name)return;
   const btn=document.getElementById('savePickerBtn');btn.disabled=true;
-  try{if(!PICKERS.find(p=>p.name.toLowerCase()===name.toLowerCase()))await addDoc(collection(db,'pickers'),{name,shift:document.getElementById('newPickerShift').value,addedTs:Date.now(),lastActiveTs:Date.now(),archived:false});closeModal('addPickerModal');document.getElementById('newPickerName').value='';}
+  try{if(!PICKERS.find(p=>p.name.toLowerCase()===name.toLowerCase()))await addDoc(collection(db,'pickers'),{name,shift:document.getElementById('newPickerShift').value,addedTs:Date.now(),lastActiveTs:Date.now(),archived:false,deactivated:false});closeModal('addPickerModal');document.getElementById('newPickerName').value='';}
   finally{btn.disabled=false;}
+};
+
+window.openEditPicker=function(pickerId){
+  const p=PICKERS.find(x=>x.id===pickerId);
+  if(!p)return;
+  document.getElementById('editPickerId').value=p.id;
+  document.getElementById('editPickerOldName').value=p.name;
+  document.getElementById('editPickerName').value=p.name;
+  document.getElementById('editPickerShift').value=p.shift;
+  openModal('editPickerModal');
+};
+
+window.saveEditPicker=async function(){
+  const id=document.getElementById('editPickerId').value;
+  const oldName=document.getElementById('editPickerOldName').value;
+  const newName=document.getElementById('editPickerName').value.trim();
+  const newShift=document.getElementById('editPickerShift').value;
+  if(!newName)return;
+  const btn=document.getElementById('editPickerSaveBtn');btn.disabled=true;
+  try{
+    // Update picker doc
+    await updateDoc(doc(db,'pickers',id),{name:newName,shift:newShift});
+    // If name changed, update all orders and shortages that reference the old name
+    if(newName!==oldName){
+      const toUpdate=ORDERS.filter(o=>o.pickerName===oldName);
+      for(const o of toUpdate) await updateDoc(doc(db,'orders',o.id),{pickerName:newName});
+      const sToUpdate=SHORTAGES.filter(s=>s.pickerName===oldName);
+      for(const s of sToUpdate) await updateDoc(doc(db,'shortages',s.id),{pickerName:newName});
+    }
+    closeModal('editPickerModal');
+  }finally{btn.disabled=false;}
+};
+
+window.confirmDeactivate=function(pickerId,pickerName){
+  if(confirm(`Deactivate ${pickerName}?\n\nTheir KPI will be excluded from active tracking. Historical data is preserved. You can reactivate them at any time.`)){
+    toggleDeactivatePicker(pickerId,true);
+  }
+};
+
+window.toggleDeactivatePicker=async function(pickerId,deactivate){
+  await updateDoc(doc(db,'pickers',pickerId),{deactivated:!!deactivate});
 };
 
 // ── DIVISIONS ────────────────────────────────────────
@@ -1185,7 +1630,7 @@ function renderLoginLog(){
 // ── ALERTS ───────────────────────────────────────────
 let alertPickerId=null;
 function renderAlerts(){
-  const now=Date.now();const inact=PICKERS.filter(p=>!p.archived&&(now-p.lastActiveTs)>30*86400000);
+  const now=Date.now();const inact=PICKERS.filter(p=>!p.archived&&!p.deactivated&&(now-p.lastActiveTs)>30*86400000);
   const el=document.getElementById('alertsList');
   if(!inact.length){el.innerHTML='<div class="alert alert-green">✅ All pickers active within 30 days.</div>';return;}
   el.innerHTML=inact.map(p=>{const days=Math.floor((now-p.lastActiveTs)/86400000);return`<div class="card mb-10"><div class="card-body flex-c j-between gap-10" style="flex-wrap:wrap"><div><div style="font-size:14px;font-weight:700;margin-bottom:2px">${p.name}</div><div class="text-xs text-muted">Last: ${fmtDate(p.lastActiveTs)} · <strong style="color:var(--amber)">${days} days ago</strong></div></div><button class="btn btn-ghost btn-sm" onclick="triggerAlert('${p.id}','${p.name}',${days})">Review</button></div></div>`;}).join('');
@@ -1198,15 +1643,101 @@ window.doConfirmActive=async()=>{if(!alertPickerId)return;await updateDoc(doc(db
 function updateBadges(){
   const now=Date.now();
   const setB=(id,n)=>{const b=document.getElementById(id);if(!b)return;if(n>0){b.textContent=n;b.style.display='inline-flex';}else b.style.display='none';};
+  const activePicking=ORDERS.filter(o=>o.status==='open'&&o.date===todayStr()).length;
+  setB('bLive',activePicking);
   setB('bOpen',ORDERS.filter(o=>o.status==='open').length);
   setB('b24',ORDERS.filter(o=>o.status==='open'&&(now-o.startTs)>86400000).length);
   setB('bBO',ORDERS.filter(o=>o.status==='backorder').length);
   setB('bShort',SHORTAGES.filter(s=>s.resolution==='pending').length);
-  setB('bAl',PICKERS.filter(p=>!p.archived&&(now-p.lastActiveTs)>30*86400000).length);
+  setB('bAl',PICKERS.filter(p=>!p.archived&&!p.deactivated&&(now-p.lastActiveTs)>30*86400000).length);
 }
 
-// ── DATALIST ─────────────────────────────────────────
-function refreshDatalist(){document.getElementById('pickerList').innerHTML=PICKERS.filter(p=>!p.archived).map(p=>`<option value="${p.name}">`).join('');}
+// ── PICKER DROPDOWN (scan screen) ────────────────────
+function refreshDatalist(){
+  // Keep the hidden datalist for fallback
+  document.getElementById('pickerList').innerHTML=
+    PICKERS.filter(p=>!p.archived&&!p.deactivated).map(p=>`<option value="${p.name}">`).join('');
+  refreshPickerDropdown();
+}
+
+window.refreshPickerDropdown=function(){
+  const shift=document.getElementById('scanShift')?.value||'';
+  const input=document.getElementById('scanPicker');
+  // If the currently typed name belongs to a picker who switched shifts, clear it
+  // (don't auto-clear — user might be typing a new name)
+  renderPickerDropdownOptions(shift, input?.value||'');
+};
+
+window.showPickerDropdown=function(){
+  const shift=document.getElementById('scanShift')?.value||'';
+  const query=document.getElementById('scanPicker')?.value||'';
+  renderPickerDropdownOptions(shift, query);
+  document.getElementById('pickerDropdown').style.display='block';
+};
+
+window.filterPickerDropdown=function(){
+  const shift=document.getElementById('scanShift')?.value||'';
+  const query=document.getElementById('scanPicker')?.value||'';
+  renderPickerDropdownOptions(shift, query);
+  document.getElementById('pickerDropdown').style.display='block';
+};
+
+window.hidePickerDropdownDelayed=function(){
+  setTimeout(()=>{ document.getElementById('pickerDropdown').style.display='none'; }, 200);
+};
+
+function renderPickerDropdownOptions(shift, query){
+  const dd=document.getElementById('pickerDropdown');
+  if(!dd)return;
+  const q=query.toLowerCase().trim();
+  let pickers=PICKERS.filter(p=>!p.archived&&!p.deactivated);
+  // Group by shift matching first
+  const shiftMatch=pickers.filter(p=>p.shift===shift);
+  const otherShift=pickers.filter(p=>p.shift!==shift);
+  // Filter by query
+  const filterFn=p=>!q||p.name.toLowerCase().includes(q);
+  const sm=shiftMatch.filter(filterFn);
+  const om=otherShift.filter(filterFn);
+
+  if(!sm.length&&!om.length){
+    dd.innerHTML=`<div style="padding:10px 14px;font-size:12px;color:var(--text3)">No pickers found — type to add new</div>`;
+    return;
+  }
+
+  let html='';
+  if(sm.length){
+    html+=`<div style="padding:5px 12px 3px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">${shift} Shift</div>`;
+    html+=sm.map(p=>`<div class="picker-dd-item" onclick="selectPickerFromDropdown('${p.name.replace(/'/g,"\\'")}','${p.shift}')" style="padding:9px 14px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px">
+      <span style="font-size:11px">${p.shift==='1st'?'🌅':'🌙'}</span>${p.name}
+    </div>`).join('');
+  }
+  if(om.length){
+    const otherLabel=shift==='1st'?'2nd Shift':'1st Shift';
+    html+=`<div style="padding:5px 12px 3px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);border-top:1px solid var(--border);margin-top:4px">${otherLabel}</div>`;
+    html+=om.map(p=>`<div class="picker-dd-item" onclick="selectPickerFromDropdown('${p.name.replace(/'/g,"\\'")}','${p.shift}')" style="padding:9px 14px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;opacity:.7">
+      <span style="font-size:11px">${p.shift==='1st'?'🌅':'🌙'}</span>${p.name}
+    </div>`).join('');
+  }
+  dd.innerHTML=html;
+
+  // Hover effect
+  dd.querySelectorAll('.picker-dd-item').forEach(el=>{
+    el.addEventListener('mouseenter',()=>el.style.background='var(--surface2)');
+    el.addEventListener('mouseleave',()=>el.style.background='');
+  });
+}
+
+window.selectPickerFromDropdown=function(name, shift){
+  document.getElementById('scanPicker').value=name;
+  // Auto-switch shift to match picker's shift
+  document.getElementById('scanShift').value=shift;
+  document.getElementById('pickerDropdown').style.display='none';
+  // Move focus to submit or lines if empty
+  const lines=document.getElementById('scanLines').value;
+  if(!lines) document.getElementById('scanLines').focus();
+  else document.getElementById('submitBtn').focus();
+};
+
 function populateArchPickers(){const sel=document.getElementById('archPicker');if(!sel)return;const cur=sel.value;sel.innerHTML='<option value="">All Pickers</option>'+PICKERS.map(p=>`<option value="${p.name}"${p.name===cur?' selected':''}>${p.name}</option>`).join('');}
 
 // ── SETTINGS UI ──────────────────────────────────────
@@ -1299,6 +1830,7 @@ window.showPage=function(id,tab){
   document.getElementById('page-'+id)?.classList.add('active');
   if(tab&&tab.classList)tab.classList.add('active');
   if(id==='dashboard')renderDashboard();if(id==='open-orders')renderOpenOrders();
+  if(id==='live')renderLive();
   if(id==='pickers')renderPickers();if(id==='divisions')renderDivisions();
   if(id==='backorder')renderBackorder();if(id==='shortages'){populateShortDivFilter();renderShortages();}
   if(id==='open24')renderOpen24();if(id==='archive')renderArchive();
@@ -1321,6 +1853,12 @@ document.getElementById('scanPicker').addEventListener('keydown',e=>{if(e.key===
 // ── CLOCK ─────────────────────────────────────────────
 const tick=()=>document.getElementById('liveTime').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+'  '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 setInterval(tick,1000);tick();
+
+// Auto-refresh live page every 30 seconds (elapsed time updates)
+setInterval(()=>{
+  if(activePage()==='live') renderLive();
+  if(activePage()==='pickers') renderPickers();
+},30000);
 
 // ── BOOT ─────────────────────────────────────────────
 async function boot(){
