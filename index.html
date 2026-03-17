@@ -6,295 +6,187 @@
 <title>Warehouse Pick Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-/* ═══════════════════════════════════════════
-   CSS VARIABLES — LIGHT & DARK
-═══════════════════════════════════════════ */
-:root {
-  --bg:#f0f2f5; --surface:#fff; --surface2:#f7f8fa; --surface3:#eef0f4;
-  --border:#e2e5eb; --border2:#d0d5de;
-  --text:#1a1d23; --text2:#5a6072; --text3:#8b93a7;
-  --accent:#1d6ef5; --accent-light:#dbeafe; --accent-hover:#1558d6;
-  --green:#16a34a; --green-light:#dcfce7;
-  --amber:#d97706; --amber-light:#fef3c7;
-  --red:#dc2626; --red-light:#fee2e2;
-  --purple:#7c3aed; --purple-light:#ede9fe;
-  --teal:#0891b2; --teal-light:#cffafe;
-  --orange:#ea580c; --orange-light:#ffedd5;
-  --shadow-sm:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
-  --shadow:0 4px 12px rgba(0,0,0,.08);
-  --shadow-lg:0 12px 32px rgba(0,0,0,.12),0 4px 10px rgba(0,0,0,.06);
-  --radius:10px; --radius-sm:6px; --radius-lg:16px;
-}
-[data-theme="dark"] {
-  --bg:#0f1117; --surface:#1a1d26; --surface2:#22263a; --surface3:#2a2f44;
-  --border:#2e3347; --border2:#3a4060;
-  --text:#e8eaf0; --text2:#9aa0b8; --text3:#5f6680;
-  --accent:#4d8ef8; --accent-light:#1e3a6e; --accent-hover:#6ba3ff;
-  --green:#22c55e; --green-light:#14401e;
-  --amber:#f59e0b; --amber-light:#422d06;
-  --red:#f87171; --red-light:#4a1515;
-  --purple:#a78bfa; --purple-light:#3b2a6e;
-  --teal:#22d3ee; --teal-light:#0a3a44;
-  --orange:#fb923c; --orange-light:#4a2010;
-  --shadow-sm:0 1px 3px rgba(0,0,0,.3);
-  --shadow:0 4px 12px rgba(0,0,0,.4);
-  --shadow-lg:0 12px 32px rgba(0,0,0,.5);
-}
-
-/* ═══════════════════════════════════════════
-   RESET & BASE
-═══════════════════════════════════════════ */
+:root{--bg:#f0f2f5;--surface:#fff;--surface2:#f7f8fa;--surface3:#eef0f4;--border:#e2e5eb;--border2:#d0d5de;--text:#1a1d23;--text2:#5a6072;--text3:#8b93a7;--accent:#1d6ef5;--accent-light:#dbeafe;--accent-hover:#1558d6;--green:#16a34a;--green-light:#dcfce7;--amber:#d97706;--amber-light:#fef3c7;--red:#dc2626;--red-light:#fee2e2;--purple:#7c3aed;--purple-light:#ede9fe;--teal:#0891b2;--teal-light:#cffafe;--orange:#ea580c;--orange-light:#ffedd5;--shadow-sm:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);--shadow-lg:0 12px 32px rgba(0,0,0,.12),0 4px 10px rgba(0,0,0,.06);--radius:10px;--radius-sm:6px;--radius-lg:16px}
+[data-theme="dark"]{--bg:#0f1117;--surface:#1a1d26;--surface2:#22263a;--surface3:#2a2f44;--border:#2e3347;--border2:#3a4060;--text:#e8eaf0;--text2:#9aa0b8;--text3:#5f6680;--accent:#4d8ef8;--accent-light:#1e3a6e;--accent-hover:#6ba3ff;--green:#22c55e;--green-light:#14401e;--amber:#f59e0b;--amber-light:#422d06;--red:#f87171;--red-light:#4a1515;--purple:#a78bfa;--purple-light:#3b2a6e;--teal:#22d3ee;--teal-light:#0a3a44;--orange:#fb923c;--orange-light:#4a2010;--shadow-sm:0 1px 3px rgba(0,0,0,.3);--shadow-lg:0 12px 32px rgba(0,0,0,.5)}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5;transition:background .2s,color .2s}
-
-/* ═══ LOADING ═══ */
-#loadingOverlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-size:15px;color:var(--text2);font-weight:500}
-.spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+/* LOGIN */
+#loginScreen{position:fixed;inset:0;background:var(--bg);z-index:10000;display:flex;align-items:center;justify-content:center}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px 32px;width:330px;text-align:center;box-shadow:var(--shadow-lg)}
+.login-logo{font-size:36px;margin-bottom:8px}.login-title{font-size:18px;font-weight:700;letter-spacing:-.5px;margin-bottom:2px}.login-sub{font-size:11px;color:var(--text3);margin-bottom:16px}
+.user-select-btn{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;color:var(--text);text-align:left;transition:all .15s;display:flex;align-items:center;gap:8px}
+.user-select-btn:hover{background:var(--accent-light);border-color:var(--accent);color:var(--accent)}
+.pin-dots{display:flex;gap:9px;justify-content:center;margin:12px 0}
+.pin-dot{width:12px;height:12px;border-radius:50%;background:var(--border2);transition:background .15s}
+.pin-dot.filled{background:var(--accent)}.pin-dot.error{background:var(--red)}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-width:188px;margin:0 auto}
+.numpad-btn{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px;font-size:15px;font-weight:600;cursor:pointer;transition:all .12s;font-family:inherit;color:var(--text)}
+.numpad-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.login-error{color:var(--red);font-size:12px;font-weight:500;min-height:16px;margin-top:6px}
+/* LOADING */
+#loadingOverlay{position:fixed;inset:0;background:var(--bg);z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;gap:13px;font-size:14px;color:var(--text2);font-weight:500}
+.spinner{width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-
-/* ═══ HEADER ═══ */
-.app-header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow-sm)}
-.app-logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;letter-spacing:-.3px}
-.logo-icon{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;flex-shrink:0}
-.header-byline{font-size:10px;font-weight:500;color:var(--text3);letter-spacing:.3px;white-space:nowrap}
-.header-right{display:flex;align-items:center;gap:10px}
+/* HEADER */
+.app-header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow-sm)}
+.app-logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;letter-spacing:-.3px}
+.logo-icon{width:28px;height:28px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;flex-shrink:0}
+.header-byline{font-size:9px;font-weight:500;color:var(--text3)}
+.header-right{display:flex;align-items:center;gap:7px}
 .header-meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3)}
-.conn-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;margin-right:4px}
-.conn-dot.off{background:var(--red)}
-.icon-btn{background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;cursor:pointer;color:var(--text2);font-size:14px;display:flex;align-items:center;gap:5px;font-family:inherit;transition:all .15s}
+.conn-dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:3px}.conn-dot.off{background:var(--red)}
+.user-chip{display:flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer}
+.user-chip:hover{background:var(--surface3)}
+.ua{width:18px;height:18px;background:var(--accent);border-radius:50%;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.icon-btn{background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 8px;cursor:pointer;color:var(--text2);font-size:12px;display:flex;align-items:center;gap:4px;font-family:inherit;transition:all .15s}
 .icon-btn:hover{background:var(--surface2);color:var(--text)}
-
-/* ═══ NAV ═══ */
-.nav-tabs{background:var(--surface);border-bottom:1px solid var(--border);display:flex;padding:0 20px;overflow-x:auto;gap:0}
-.nav-tab{padding:11px 16px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;user-select:none;display:flex;align-items:center;gap:5px}
-.nav-tab:hover{color:var(--text)}
-.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
-.nav-badge{display:inline-flex;align-items:center;justify-content:center;background:var(--red);color:#fff;font-size:9px;font-weight:700;min-width:16px;height:16px;padding:0 4px;border-radius:8px}
-
-/* ═══ MAIN ═══ */
-.main{padding:20px;max-width:1440px;margin:0 auto}
-.page{display:none}.page.active{display:block}
-
-/* ═══ CARDS ═══ */
+/* NAV */
+.nav-tabs{background:var(--surface);border-bottom:1px solid var(--border);display:flex;padding:0 16px;overflow-x:auto}
+.nav-tab{padding:9px 12px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .15s;user-select:none;display:flex;align-items:center;gap:4px}
+.nav-tab:hover{color:var(--text)}.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.nav-badge{display:inline-flex;align-items:center;justify-content:center;background:var(--red);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;padding:0 3px;border-radius:8px}
+/* MAIN */
+.main{padding:15px;max-width:1440px;margin:0 auto}.page{display:none}.page.active{display:block}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
-.card-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
-.card-title{font-weight:600;font-size:14px}
-.card-body{padding:18px}
-
-/* ═══ GRIDS ═══ */
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
-.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.grid-auto{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-
-/* ═══ STAT CARDS ═══ */
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-sm)}
-.stat-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:6px}
-.stat-value{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
-.stat-sub{font-size:11px;color:var(--text3);margin-top:3px}
-.stat-card.c-accent{border-left:3px solid var(--accent)}
-.stat-card.c-green{border-left:3px solid var(--green)}
-.stat-card.c-amber{border-left:3px solid var(--amber)}
-.stat-card.c-red{border-left:3px solid var(--red)}
-.stat-card.c-purple{border-left:3px solid var(--purple)}
-.stat-card.c-teal{border-left:3px solid var(--teal)}
-
-/* ═══ FORMS ═══ */
-input,select,textarea{font-family:'IBM Plex Sans',sans-serif;font-size:14px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:9px 12px;color:var(--text);background:var(--surface);width:100%;transition:border-color .15s,box-shadow .15s;outline:none}
+.card-header{padding:11px 15px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.card-title{font-weight:600;font-size:13px}.card-body{padding:15px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:13px}.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:13px}.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}.grid-auto{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px;box-shadow:var(--shadow-sm)}
+.stat-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:5px}
+.stat-value{font-size:24px;font-weight:700;letter-spacing:-1px;line-height:1}.stat-sub{font-size:11px;color:var(--text3);margin-top:3px}
+.stat-card.c-accent{border-left:3px solid var(--accent)}.stat-card.c-green{border-left:3px solid var(--green)}.stat-card.c-amber{border-left:3px solid var(--amber)}.stat-card.c-red{border-left:3px solid var(--red)}.stat-card.c-teal{border-left:3px solid var(--teal)}.stat-card.c-purple{border-left:3px solid var(--purple)}
+input,select,textarea{font-family:'IBM Plex Sans',sans-serif;font-size:14px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 11px;color:var(--text);background:var(--surface);width:100%;transition:border-color .15s,box-shadow .15s;outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(29,110,245,.12)}
-input.big{font-size:17px;font-family:'IBM Plex Mono',monospace;font-weight:500;padding:12px 14px;letter-spacing:.5px}
-input[type=number]{-moz-appearance:textfield}
-label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px}
-.form-group{margin-bottom:14px}
-.form-row{display:flex;gap:12px}.form-row .form-group{flex:1}
-
-/* ═══ BUTTONS ═══ */
-.btn{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;padding:9px 18px;border-radius:var(--radius-sm);border:none;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+input.big{font-size:16px;font-family:'IBM Plex Mono',monospace;font-weight:500;padding:11px 13px;letter-spacing:.5px}
+label{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
+.form-group{margin-bottom:11px}.form-row{display:flex;gap:10px}.form-row .form-group{flex:1}
+.btn{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;padding:8px 14px;border-radius:var(--radius-sm);border:none;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover:not(:disabled){background:var(--accent-hover)}
-.btn-success{background:var(--green);color:#fff}
-.btn-danger{background:var(--red);color:#fff}
-.btn-amber{background:var(--amber);color:#fff}
+.btn-success{background:var(--green);color:#fff}.btn-danger{background:var(--red);color:#fff}.btn-amber{background:var(--amber);color:#fff}
 .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2)}.btn-ghost:hover:not(:disabled){background:var(--surface2);color:var(--text)}
-.btn-lg{padding:13px 24px;font-size:15px;border-radius:var(--radius)}
-.btn-sm{padding:5px 11px;font-size:12px}
-.btn-xs{padding:3px 8px;font-size:11px}
-
-/* ═══ TABLE ═══ */
+.btn-lg{padding:11px 20px;font-size:14px;border-radius:var(--radius)}.btn-sm{padding:5px 10px;font-size:12px}.btn-xs{padding:3px 7px;font-size:11px}
 .table-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:12px}
 thead tr{background:var(--surface2);border-bottom:1px solid var(--border)}
-thead th{padding:9px 13px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);white-space:nowrap}
-tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
-tbody tr:hover{background:var(--surface2)}
-tbody td{padding:9px 13px;font-size:13px}
-
-/* ═══ BADGES ═══ */
-.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
-.bg-green{background:var(--green-light);color:var(--green)}
-.bg-amber{background:var(--amber-light);color:var(--amber)}
-.bg-red{background:var(--red-light);color:var(--red)}
-.bg-blue{background:var(--accent-light);color:var(--accent)}
-.bg-purple{background:var(--purple-light);color:var(--purple)}
-.bg-teal{background:var(--teal-light);color:var(--teal)}
-.bg-orange{background:var(--orange-light);color:var(--orange)}
-.bg-gray{background:var(--surface3);color:var(--text2)}
-
-/* ═══ ALERTS ═══ */
-.alert{padding:11px 15px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;margin-bottom:14px;display:flex;align-items:flex-start;gap:9px}
-.alert-amber{background:var(--amber-light);color:#92400e;border:1px solid var(--amber)}
-.alert-red{background:var(--red-light);color:#991b1b;border:1px solid var(--red)}
-.alert-green{background:var(--green-light);color:#14532d;border:1px solid var(--green)}
-.alert-blue{background:var(--accent-light);color:#1e3a6e;border:1px solid var(--accent)}
-
-/* ═══ SCAN RESULT ═══ */
-.scan-result{border-radius:var(--radius);padding:16px 18px;margin-top:14px;display:none;animation:fadeIn .3s ease}
-.sr-open{background:var(--accent-light);border:1.5px solid var(--accent);display:block}
-.sr-closed{background:var(--green-light);border:1.5px solid var(--green);display:block}
-.sr-warn{background:var(--amber-light);border:1.5px solid var(--amber);display:block}
-.sr-error{background:var(--red-light);border:1.5px solid var(--red);display:block}
-.sr-title{font-size:14px;font-weight:700;margin-bottom:3px}
-.sr-detail{font-size:13px;opacity:.8}
+thead th{padding:8px 11px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}tbody tr:hover{background:var(--surface2)}
+tbody td{padding:8px 11px;font-size:12px}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700}
+.bg-green{background:var(--green-light);color:var(--green)}.bg-amber{background:var(--amber-light);color:var(--amber)}.bg-red{background:var(--red-light);color:var(--red)}.bg-blue{background:var(--accent-light);color:var(--accent)}.bg-purple{background:var(--purple-light);color:var(--purple)}.bg-teal{background:var(--teal-light);color:var(--teal)}.bg-orange{background:var(--orange-light);color:var(--orange)}.bg-gray{background:var(--surface3);color:var(--text2)}
+.alert{padding:10px 13px;border-radius:var(--radius-sm);font-size:12px;font-weight:500;margin-bottom:11px;display:flex;align-items:flex-start;gap:8px}
+.alert-amber{background:var(--amber-light);color:#92400e;border:1px solid var(--amber)}.alert-red{background:var(--red-light);color:#991b1b;border:1px solid var(--red)}.alert-green{background:var(--green-light);color:#14532d;border:1px solid var(--green)}.alert-blue{background:var(--accent-light);color:#1e3a6e;border:1px solid var(--accent)}
+.scan-result{border-radius:var(--radius);padding:12px 14px;margin-top:10px;display:none;animation:fadeIn .3s ease}
+.sr-open{background:var(--accent-light);border:1.5px solid var(--accent);display:block}.sr-closed{background:var(--green-light);border:1.5px solid var(--green);display:block}.sr-warn{background:var(--amber-light);border:1.5px solid var(--amber);display:block}.sr-error{background:var(--red-light);border:1.5px solid var(--red);display:block}
+.sr-title{font-size:13px;font-weight:700;margin-bottom:2px}.sr-detail{font-size:12px;opacity:.8}
 @keyframes fadeIn{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
-
-/* ═══ DIV BARS ═══ */
-.div-bar{margin-bottom:12px}
-.div-bar-head{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
-.div-bar-label{font-weight:600}
-.div-bar-track{height:7px;background:var(--surface3);border-radius:99px;overflow:hidden}
-.div-bar-fill{height:100%;border-radius:99px;transition:width .5s ease}
-
-/* ═══ PICKER CARD ═══ */
-.picker-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:15px 17px;position:relative}
-.picker-name{font-size:15px;font-weight:700;margin-bottom:3px}
-.picker-shift{position:absolute;top:12px;right:12px}
-.picker-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px}
-.ps-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3)}
-.ps-value{font-size:17px;font-weight:700}
-
-/* ═══ MODAL ═══ */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px);padding:20px}
+.div-bar{margin-bottom:10px}.div-bar-head{display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px}.div-bar-label{font-weight:600}.div-bar-track{height:6px;background:var(--surface3);border-radius:99px;overflow:hidden}.div-bar-fill{height:100%;border-radius:99px;transition:width .5s ease}
+.picker-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px;position:relative}
+.picker-name{font-size:14px;font-weight:700;margin-bottom:2px}.picker-shift{position:absolute;top:10px;right:10px}
+.picker-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+.ps-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text3)}.ps-value{font-size:15px;font-weight:700}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px);padding:16px}
 .modal-overlay.open{display:flex}
-.modal{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:520px;max-width:100%;max-height:90vh;overflow-y:auto;border:1px solid var(--border)}
-.modal-sm .modal{width:380px}
-.modal-lg .modal{width:700px}
-.modal-head{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-.modal-title{font-size:16px;font-weight:700}
-.modal-x{font-size:20px;cursor:pointer;color:var(--text3);padding:2px 6px;border-radius:4px;line-height:1}
-.modal-x:hover{background:var(--surface2);color:var(--text)}
-.modal-body{padding:18px 22px}
-.modal-foot{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
-
-/* ═══ SHORTAGE ═══ */
-.shortage-item{display:flex;gap:10px;margin-bottom:10px;align-items:flex-start}
-.shortage-item input{flex:1}
-.shortage-remove{background:var(--red-light);color:var(--red);border:none;border-radius:var(--radius-sm);padding:9px 10px;cursor:pointer;font-size:14px;flex-shrink:0}
-
-/* ═══ SETTINGS ═══ */
-.settings-section{margin-bottom:24px}
-.settings-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
-.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
-.toggle-row:last-child{border-bottom:none}
-.toggle-label{font-size:14px;font-weight:500}
-.toggle-sub{font-size:12px;color:var(--text3)}
-.toggle{position:relative;width:42px;height:24px;flex-shrink:0}
-.toggle input{opacity:0;width:0;height:0}
-.toggle-slider{position:absolute;inset:0;background:var(--border2);border-radius:12px;cursor:pointer;transition:.2s}
-.toggle-slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
-.toggle input:checked+.toggle-slider{background:var(--accent)}
-.toggle input:checked+.toggle-slider:before{transform:translateX(18px)}
-
-/* ═══ PRINT ═══ */
-@media print {
-  .app-header,.nav-tabs,.no-print{display:none!important}
-  body{background:#fff;color:#000}
-  .print-only{display:block!important}
-  .card{box-shadow:none;border:1px solid #ddd}
-  .page{display:block!important}
-  #page-print{display:block!important}
-}
-.print-only{display:none}
-
-/* ═══ UTILS ═══ */
-.mb-4{margin-bottom:4px}.mb-8{margin-bottom:8px}.mb-12{margin-bottom:12px}
-.mb-16{margin-bottom:16px}.mb-20{margin-bottom:20px}.mb-24{margin-bottom:24px}
-.mt-4{margin-top:4px}.mt-8{margin-top:8px}.mt-12{margin-top:12px}.mt-16{margin-top:16px}
-.flex{display:flex}.flex-c{display:flex;align-items:center}
-.gap-6{gap:6px}.gap-8{gap:8px}.gap-10{gap:10px}.gap-12{gap:12px}
+.modal{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:490px;max-width:100%;max-height:92vh;overflow-y:auto;border:1px solid var(--border)}
+.modal-sm .modal{width:350px}.modal-lg .modal{width:660px}.modal-xl .modal{width:860px}
+.modal-head{padding:13px 17px 11px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-size:14px;font-weight:700}.modal-x{font-size:19px;cursor:pointer;color:var(--text3);padding:2px 5px;border-radius:4px;line-height:1}.modal-x:hover{background:var(--surface2);color:var(--text)}
+.modal-body{padding:14px 17px}.modal-foot{padding:11px 17px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:7px}
+.shortage-item{display:flex;gap:6px;margin-bottom:6px;align-items:center}.shortage-item input{flex:1}
+.shortage-remove{background:var(--red-light);color:var(--red);border:none;border-radius:var(--radius-sm);padding:8px 9px;cursor:pointer;font-size:12px;flex-shrink:0}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)}.toggle-row:last-child{border-bottom:none}
+.toggle{position:relative;width:38px;height:21px;flex-shrink:0}.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--border2);border-radius:12px;cursor:pointer;transition:.2s}.toggle-slider:before{content:'';position:absolute;width:15px;height:15px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.toggle input:checked+.toggle-slider{background:var(--accent)}.toggle input:checked+.toggle-slider:before{transform:translateX(17px)}
+.danger-zone{background:var(--red-light);border:1px solid var(--red);border-radius:var(--radius);padding:12px}
+.settings-hdr{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.resolve-status-located{background:var(--green-light);color:var(--green)}.resolve-status-backorder{background:var(--amber-light);color:var(--amber)}.resolve-status-pending{background:var(--surface3);color:var(--text3)}
+.wms-preview{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-family:'IBM Plex Mono',monospace;font-size:11px;max-height:200px;overflow-y:auto;margin-top:8px;white-space:pre}
+@media print{.app-header,.nav-tabs,.no-print{display:none!important}.page{display:block!important}#page-print{display:block!important}body{background:#fff;color:#000}}
+.mb-4{margin-bottom:4px}.mb-8{margin-bottom:8px}.mb-10{margin-bottom:10px}.mb-12{margin-bottom:12px}.mb-16{margin-bottom:16px}.mb-20{margin-bottom:20px}
+.mt-4{margin-top:4px}.mt-8{margin-top:8px}.mt-10{margin-top:10px}.mt-12{margin-top:12px}
+.flex{display:flex}.flex-c{display:flex;align-items:center}.gap-6{gap:6px}.gap-8{gap:8px}.gap-10{gap:10px}.gap-12{gap:12px}
 .j-between{justify-content:space-between}.j-end{justify-content:flex-end}
-.text-c{text-align:center}.text-r{text-align:right}
-.text-muted{color:var(--text3)}.text-sm{font-size:12px}.text-xs{font-size:11px}
-.mono{font-family:'IBM Plex Mono',monospace}.bold{font-weight:700}
-.w-auto{width:auto!important}
-.empty-state{text-align:center;padding:44px 24px;color:var(--text3)}
-.empty-icon{font-size:38px;margin-bottom:10px;opacity:.45}
-.empty-title{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:4px}
-.filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
-.filter-row input,.filter-row select{width:auto;flex:1;min-width:130px}
-.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:12px}
-.danger-zone{background:var(--red-light);border:1px solid var(--red);border-radius:var(--radius);padding:16px}
-.pin-dots{display:flex;gap:8px;justify-content:center;margin:12px 0}
-.pin-dot{width:12px;height:12px;border-radius:50%;background:var(--border2);transition:background .15s}
-.pin-dot.filled{background:var(--accent)}
-
-::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
-
-@media(max-width:768px){
-  .grid-2,.grid-3,.grid-4{grid-template-columns:1fr}
-  .main{padding:12px}.app-header{padding:0 12px}.nav-tabs{padding:0 12px}
-  .picker-stats{grid-template-columns:1fr 1fr}
-}
+.text-c{text-align:center}.text-r{text-align:right}.text-muted{color:var(--text3)}.text-sm{font-size:12px}.text-xs{font-size:11px}
+.mono{font-family:'IBM Plex Mono',monospace}.bold{font-weight:700}.w-auto{width:auto!important}
+.empty-state{text-align:center;padding:38px 20px;color:var(--text3)}.empty-icon{font-size:34px;margin-bottom:8px;opacity:.45}.empty-title{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:4px}
+.filter-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:11px}.filter-row input,.filter-row select{width:auto;flex:1;min-width:120px}
+.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:10px}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
+@media(max-width:768px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}.main{padding:10px}.picker-stats{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
 
-<!-- LOADING -->
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">📦</div>
+    <div class="login-title">Pick Tracker</div>
+    <div class="login-sub">Built by Ruben Mendoza · IC Manager</div>
+    <div id="loginStep1">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Select your name to log in:</div>
+      <div id="loginUserList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;max-height:280px;overflow-y:auto"></div>
+    </div>
+    <div id="loginStep2" style="display:none">
+      <div id="loginSelectedLabel" style="font-size:15px;font-weight:700;color:var(--accent);margin-bottom:10px"></div>
+      <div class="pin-dots" id="ld"><div class="pin-dot" id="ld0"></div><div class="pin-dot" id="ld1"></div><div class="pin-dot" id="ld2"></div><div class="pin-dot" id="ld3"></div></div>
+      <div class="numpad" id="loginNumpad"></div>
+      <div id="loginError" class="login-error"></div>
+      <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px" onclick="loginBack()">← Back</button>
+    </div>
+    <div style="margin-top:12px;font-size:10px;color:var(--text3)">Reset any PIN with passphrase: <strong>NYMETS</strong></div>
+  </div>
+</div>
+
+<!-- ═══ LOADING ═══ -->
 <div id="loadingOverlay"><div class="spinner"></div><div>Connecting to Firebase…</div></div>
 
-<!-- HEADER -->
+<!-- ═══ MAIN APP (hidden until login) ═══ -->
+<div id="mainApp" style="display:none">
+
 <div class="app-header">
   <div class="app-logo">
     <div class="logo-icon">📦</div>
-    <div>
-      <div>Warehouse Pick Tracker</div>
-      <div class="header-byline">Built by Ruben Mendoza · IC Manager</div>
-    </div>
+    <div><div>Warehouse Pick Tracker</div><div class="header-byline">Built by Ruben Mendoza · IC Manager</div></div>
   </div>
   <div class="header-right">
     <div id="connStatus" class="text-sm text-muted"><span class="conn-dot off"></span>Connecting…</div>
     <div class="header-meta" id="liveTime">—</div>
-    <button class="icon-btn" onclick="showPage('settings',this)">⚙️ Settings</button>
+    <div class="user-chip" id="userChip" title="Click to log out">
+      <div class="ua" id="userAvatar">?</div>
+      <span id="userNameDisplay">—</span>
+    </div>
+    <button class="icon-btn" onclick="showPage('settings',this)">⚙️</button>
   </div>
 </div>
 
-<!-- NAV -->
 <div class="nav-tabs">
   <div class="nav-tab active" onclick="showPage('scan',this)">📷 Scan</div>
   <div class="nav-tab" onclick="showPage('open-orders',this)">📋 Open Orders <span class="nav-badge" id="bOpen" style="display:none"></span></div>
   <div class="nav-tab" onclick="showPage('dashboard',this)">📊 Dashboard</div>
   <div class="nav-tab" onclick="showPage('pickers',this)">👷 Pickers</div>
   <div class="nav-tab" onclick="showPage('divisions',this)">🏷️ Divisions</div>
-  <div class="nav-tab" onclick="showPage('backorder',this)">🔄 Back Orders <span class="nav-badge" id="bBackorder" style="display:none"></span></div>
-  <div class="nav-tab" onclick="showPage('shortages',this)">⚠️ Shortages <span class="nav-badge" id="bShortages" style="display:none"></span></div>
-  <div class="nav-tab" onclick="showPage('open24',this)">🕐 Open &gt;24h <span class="nav-badge" id="b24" style="display:none"></span></div>
+  <div class="nav-tab" onclick="showPage('backorder',this)">🔄 Back Orders <span class="nav-badge" id="bBO" style="display:none"></span></div>
+  <div class="nav-tab" onclick="showPage('shortages',this)">⚠️ Shortages <span class="nav-badge" id="bShort" style="display:none"></span></div>
+  <div class="nav-tab" onclick="showPage('open24',this)">🕐 &gt;24h <span class="nav-badge" id="b24" style="display:none"></span></div>
   <div class="nav-tab" onclick="showPage('archive',this)">🗄️ Archive</div>
-  <div class="nav-tab" onclick="showPage('alerts',this)">🔔 Alerts <span class="nav-badge" id="bAlerts" style="display:none"></span></div>
+  <div class="nav-tab" onclick="showPage('logins',this)">👤 Login Log</div>
+  <div class="nav-tab" onclick="showPage('alerts',this)">🔔 Alerts <span class="nav-badge" id="bAl" style="display:none"></span></div>
 </div>
 
 <div class="main">
 
-<!-- ══════════════════════════════════
-     SCAN PAGE
-══════════════════════════════════ -->
+<!-- SCAN -->
 <div class="page active" id="page-scan">
-  <div class="grid-2" style="max-width:860px;margin:0 auto">
+  <div class="grid-2" style="max-width:840px;margin:0 auto">
     <div class="card">
       <div class="card-header"><div class="card-title">📷 Scan / Enter Order</div></div>
       <div class="card-body">
         <div class="form-group"><label>Order Number</label><input class="big" type="text" id="scanOrder" placeholder="Scan or type order #" autocomplete="off" autofocus></div>
-        <div class="form-group"><label>Lines on Order</label><input type="number" id="scanLines" placeholder="# of lines" min="1" style="font-size:16px;padding:11px 14px"></div>
+        <div class="form-group"><label>Lines on Order</label><input type="number" id="scanLines" placeholder="# of lines" min="1" style="font-size:15px;padding:10px 12px"></div>
         <div class="form-group"><label>Picker Name</label><input type="text" id="scanPicker" list="pickerList" placeholder="Name or scan badge" autocomplete="off"><datalist id="pickerList"></datalist></div>
         <div class="form-group"><label>Shift</label><select id="scanShift"><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select></div>
         <button class="btn btn-primary btn-lg" style="width:100%" id="submitBtn" onclick="processOrder()">✅ Submit</button>
@@ -303,1121 +195,1024 @@ tbody td{padding:9px 13px;font-size:13px}
     </div>
     <div class="card">
       <div class="card-header"><div class="card-title">Today's Activity</div></div>
-      <div class="card-body" style="padding:0"><div id="todayFeed" style="max-height:480px;overflow-y:auto"></div></div>
+      <div class="card-body" style="padding:0"><div id="todayFeed" style="max-height:460px;overflow-y:auto"></div></div>
     </div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     OPEN ORDERS
-══════════════════════════════════ -->
+<!-- OPEN ORDERS -->
 <div class="page" id="page-open-orders">
-  <div class="flex-c j-between mb-16 gap-10" style="flex-wrap:wrap">
+  <div class="flex-c j-between mb-12 gap-8" style="flex-wrap:wrap">
     <div class="section-title" style="margin:0">All Open Orders</div>
     <div class="flex gap-8">
-      <input type="text" id="openSearch" placeholder="🔍 Search…" oninput="renderOpenOrders()" style="width:220px">
-      <select id="openShiftF" onchange="renderOpenOrders()" style="width:auto"><option value="">All Shifts</option><option value="1st">1st</option><option value="2nd">2nd</option></select>
+      <input type="text" id="openSearch" placeholder="🔍 Search…" oninput="renderOpenOrders()" style="width:200px">
+      <select id="openShiftF" onchange="renderOpenOrders()" class="w-auto"><option value="">All Shifts</option><option value="1st">1st</option><option value="2nd">2nd</option></select>
     </div>
   </div>
-  <div class="card">
-    <div class="card-body" style="padding:0">
-      <div class="table-wrap">
-        <table><thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Start</th><th>Lines</th><th>Shortages</th><th>Status</th></tr></thead>
-        <tbody id="openOrdersBody"></tbody></table>
-      </div>
-    </div>
-  </div>
+  <div class="card"><div class="card-body" style="padding:0">
+    <div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Start</th><th>Lines</th><th>Shortages</th><th>Status</th></tr></thead><tbody id="openOrdersBody"></tbody></table></div>
+  </div></div>
 </div>
 
-<!-- ══════════════════════════════════
-     DASHBOARD
-══════════════════════════════════ -->
+<!-- DASHBOARD -->
 <div class="page" id="page-dashboard">
-  <div class="flex-c j-between mb-20 gap-12" style="flex-wrap:wrap">
+  <div class="flex-c j-between mb-16 gap-10" style="flex-wrap:wrap">
     <div class="section-title" style="margin:0">Performance Overview</div>
     <div class="flex gap-8">
-      <select id="dashPeriod" onchange="renderDashboard()" style="width:auto"><option value="today">Today</option><option value="week">This Week</option><option value="month">This Month</option><option value="all">All Time</option></select>
-      <select id="dashShift" onchange="renderDashboard()" style="width:auto"><option value="all">All Shifts</option><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select>
-      <button class="btn btn-ghost btn-sm no-print" onclick="showPage('print',this)">🖨️ Print KPI Report</button>
+      <select id="dashPeriod" onchange="renderDashboard()" class="w-auto"><option value="today">Today</option><option value="week">This Week</option><option value="month">This Month</option><option value="all">All Time</option></select>
+      <select id="dashShift" onchange="renderDashboard()" class="w-auto"><option value="all">All Shifts</option><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select>
+      <button class="btn btn-ghost btn-sm no-print" onclick="showPage('print',this)">🖨️ Print KPI</button>
     </div>
   </div>
-  <div class="grid-4 mb-20" id="dashStats"></div>
-  <div class="grid-2 mb-16">
+  <div class="grid-4 mb-16" id="dashStats"></div>
+  <div class="grid-2 mb-13">
     <div class="card"><div class="card-header"><div class="card-title">Lines by Shift</div></div><div class="card-body" id="dashShiftBreak"></div></div>
     <div class="card"><div class="card-header"><div class="card-title">Division Breakdown</div></div><div class="card-body" id="dashDivBreak"></div></div>
   </div>
-  <div class="card">
-    <div class="card-header"><div class="card-title">Picker Performance</div></div>
-    <div class="card-body" style="padding:0">
-      <div class="table-wrap"><table><thead><tr><th>Picker</th><th>Shift</th><th>Orders</th><th>Total Lines</th><th>Avg Lines/Order</th><th>Avg Time/Order</th><th>Picks/Hr</th><th>Shortages</th></tr></thead><tbody id="dashPickerBody"></tbody></table></div>
-    </div>
+  <div class="card"><div class="card-header"><div class="card-title">Picker Performance</div></div>
+    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>Picker</th><th>Shift</th><th>Orders</th><th>Total Lines</th><th>Avg Lines/Order</th><th>Avg Time/Order</th><th>Lines/Hr</th><th>Shortages</th></tr></thead><tbody id="dashPickerBody"></tbody></table></div></div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     PICKERS
-══════════════════════════════════ -->
+<!-- PICKERS -->
 <div class="page" id="page-pickers">
-  <div class="flex-c j-between mb-20"><div class="section-title" style="margin:0">Picker Roster</div><button class="btn btn-primary btn-sm" onclick="openModal('addPickerModal')">+ Add Picker</button></div>
+  <div class="flex-c j-between mb-16"><div class="section-title" style="margin:0">Picker Roster</div><button class="btn btn-primary btn-sm" onclick="openModal('addPickerModal')">+ Add Picker</button></div>
   <div class="grid-auto" id="pickersGrid"></div>
 </div>
 
-<!-- ══════════════════════════════════
-     DIVISIONS
-══════════════════════════════════ -->
+<!-- DIVISIONS -->
 <div class="page" id="page-divisions">
-  <div class="flex-c j-between mb-20">
+  <div class="flex-c j-between mb-16">
     <div class="section-title" style="margin:0">Division Totals</div>
-    <select id="divPeriod" onchange="renderDivisions()" style="width:auto"><option value="today">Today</option><option value="week">This Week</option><option value="month">This Month</option><option value="all">All Time</option></select>
+    <select id="divPeriod" onchange="renderDivisions()" class="w-auto"><option value="today">Today</option><option value="week">This Week</option><option value="month">This Month</option><option value="all">All Time</option></select>
   </div>
   <div class="grid-2" id="divCards"></div>
 </div>
 
-<!-- ══════════════════════════════════
-     BACK ORDERS
-══════════════════════════════════ -->
+<!-- BACK ORDERS -->
 <div class="page" id="page-backorder">
-  <div class="mb-14">
-    <div class="alert alert-amber">🔄 Orders with shortages waiting for back-order fulfillment. Check the box to mark complete and move to archive.</div>
-  </div>
-  <div class="card">
-    <div class="card-header"><div class="card-title">Back Order Queue</div></div>
-    <div class="card-body" style="padding:0">
-      <div class="table-wrap">
-        <table><thead><tr><th>Complete</th><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Shortage Items</th><th>Action</th></tr></thead>
-        <tbody id="backorderBody"></tbody></table>
-      </div>
-    </div>
+  <div class="alert alert-amber">🔄 Orders with shortages awaiting fulfillment. Check the box then click Complete to move to archive.</div>
+  <div class="card"><div class="card-header"><div class="card-title">Back Order Queue</div></div>
+    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>✓</th><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Shortage Items</th><th>Action</th></tr></thead><tbody id="backorderBody"></tbody></table></div></div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     SHORTAGES
-══════════════════════════════════ -->
+<!-- SHORTAGES (IC VIEW) -->
 <div class="page" id="page-shortages">
-  <div class="flex-c j-between mb-16 gap-10" style="flex-wrap:wrap">
+  <div class="flex-c j-between mb-12 gap-8" style="flex-wrap:wrap">
     <div class="section-title" style="margin:0">Shortage Report — IC View</div>
     <div class="flex gap-8">
-      <select id="shortPeriod" onchange="renderShortages()" style="width:auto"><option value="today">Today</option><option value="week">This Week</option><option value="month">This Month</option><option value="all">All Time</option></select>
-      <select id="shortDiv" onchange="renderShortages()" style="width:auto"><option value="">All Divisions</option></select>
+      <select id="shortPeriod" onchange="renderShortages()" class="w-auto"><option value="today">Today</option><option value="week">This Week</option><option value="month">This Month</option><option value="all">All Time</option></select>
+      <select id="shortDivF" onchange="renderShortages()" class="w-auto"><option value="">All Divisions</option></select>
+      <select id="shortStatusF" onchange="renderShortages()" class="w-auto"><option value="">All Status</option><option value="pending">Pending</option><option value="located">Located</option><option value="backorder">Back Ordered</option></select>
+      <button class="btn btn-primary btn-sm" id="wmsExportBtn" onclick="initiateWmsExport()">📥 Export WMS Adj. File</button>
     </div>
   </div>
-  <div class="grid-2 mb-16" id="shortSummaryCards"></div>
-  <div class="card mb-16">
-    <div class="card-header"><div class="card-title">Grouped by Product & Bin</div><div class="text-sm text-muted">Same product # + same bin are combined</div></div>
-    <div class="card-body" style="padding:0">
-      <div class="table-wrap"><table><thead><tr><th>Product #</th><th>Bin Location</th><th>Total Qty Short</th><th>Orders Affected</th><th>Division</th><th>Last Seen</th></tr></thead><tbody id="shortGroupBody"></tbody></table></div>
-    </div>
+  <div class="grid-4 mb-12" id="shortSummaryCards"></div>
+  <div class="card mb-12">
+    <div class="card-header"><div class="card-title">Grouped by Product &amp; Bin</div><div class="text-xs text-muted">Same product # + bin are combined</div></div>
+    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>Product #</th><th>Bin</th><th>Total Qty Short</th><th>Orders Affected</th><th>Division</th><th>Status</th><th>Resolve</th></tr></thead><tbody id="shortGroupBody"></tbody></table></div></div>
   </div>
   <div class="card">
-    <div class="card-header"><div class="card-title">All Shortages — Detail</div></div>
-    <div class="card-body" style="padding:0">
-      <div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Product #</th><th>Bin</th><th>Qty Short</th><th>Date</th><th>Picker</th></tr></thead><tbody id="shortDetailBody"></tbody></table></div>
-    </div>
+    <div class="card-header"><div class="card-title">All Shortage Detail</div></div>
+    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Product #</th><th>Bin</th><th>Qty Short</th><th>Date</th><th>Picker</th><th>Status</th><th>Notes</th></tr></thead><tbody id="shortDetailBody"></tbody></table></div></div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     OPEN > 24H
-══════════════════════════════════ -->
+<!-- OPEN > 24H -->
 <div class="page" id="page-open24">
-  <div class="alert alert-amber mb-16">⚠️ Orders that have been open for more than 24 hours without completion.</div>
-  <div class="card">
-    <div class="card-header"><div class="card-title">Open Orders &gt; 24 Hours</div></div>
-    <div class="card-body" style="padding:0">
-      <div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Start</th><th>Lines</th><th>Hours Open</th></tr></thead><tbody id="open24Body"></tbody></table></div>
-    </div>
+  <div class="alert alert-amber mb-12">⚠️ Orders open more than 24 hours without completion.</div>
+  <div class="card"><div class="card-header"><div class="card-title">Open Orders &gt; 24 Hours</div></div>
+    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Start</th><th>Lines</th><th>Hours Open</th></tr></thead><tbody id="open24Body"></tbody></table></div></div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     ARCHIVE
-══════════════════════════════════ -->
+<!-- ARCHIVE -->
 <div class="page" id="page-archive">
-  <div class="card mb-14">
-    <div class="card-body">
-      <div class="filter-row">
-        <input type="text" id="archSearch" placeholder="🔍 Search order #, picker…" oninput="renderArchive()">
-        <select id="archPicker" onchange="renderArchive()" style="width:auto;min-width:140px"><option value="">All Pickers</option></select>
-        <select id="archDiv" onchange="renderArchive()" style="width:auto;min-width:120px">
-          <option value="">All Divisions</option><option value="GT">TAG (GT)</option><option value="NH">NAPA (NH)</option>
-          <option value="FS">Forside (FS)</option><option value="EE">Ever Ellis (EE)</option>
-          <option value="BC">Beachcombers (BC)</option><option value="VP">VIP (VP)</option><option value="TP">Transpac (TP)</option>
-        </select>
-        <select id="archStatus" onchange="renderArchive()" style="width:auto;min-width:110px"><option value="">All</option><option value="closed">Completed</option><option value="backorder_done">Back Order Done</option></select>
-        <input type="date" id="archFrom" onchange="renderArchive()" style="width:auto">
-        <input type="date" id="archTo" onchange="renderArchive()" style="width:auto">
-        <button class="btn btn-ghost btn-sm" onclick="clearArchFilters()">Clear</button>
-      </div>
-      <div id="archCount" class="text-sm text-muted"></div>
+  <div class="card mb-12"><div class="card-body">
+    <div class="filter-row">
+      <input type="text" id="archSearch" placeholder="🔍 Search…" oninput="renderArchive()">
+      <select id="archPicker" onchange="renderArchive()" class="w-auto" style="min-width:130px"><option value="">All Pickers</option></select>
+      <select id="archDiv" onchange="renderArchive()" class="w-auto" style="min-width:110px">
+        <option value="">All Divisions</option><option value="GT">TAG (GT)</option><option value="NH">NAPA (NH)</option><option value="FS">Forside (FS)</option><option value="EE">Ever Ellis (EE)</option><option value="BC">Beachcombers (BC)</option><option value="VP">VIP (VP)</option><option value="TP">Transpac (TP)</option>
+      </select>
+      <input type="date" id="archFrom" onchange="renderArchive()" style="width:auto"><input type="date" id="archTo" onchange="renderArchive()" style="width:auto">
+      <button class="btn btn-ghost btn-sm" onclick="clearArchFilters()">Clear</button>
     </div>
-  </div>
-  <div class="card">
-    <div class="card-body" style="padding:0">
-      <div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Start</th><th>Completed</th><th>Duration</th><th>Lines</th><th>Shortages</th><th>Status</th></tr></thead><tbody id="archBody"></tbody></table></div>
-      <div id="archPag" style="padding:11px 15px;display:flex;gap:8px;align-items:center;border-top:1px solid var(--border);flex-wrap:wrap"></div>
-    </div>
-  </div>
+    <div id="archCount" class="text-xs text-muted"></div>
+  </div></div>
+  <div class="card"><div class="card-body" style="padding:0">
+    <div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Start</th><th>Completed</th><th>Duration</th><th>Lines</th><th>Shortages</th><th>Status</th></tr></thead><tbody id="archBody"></tbody></table></div>
+    <div id="archPag" style="padding:10px 14px;display:flex;gap:7px;align-items:center;border-top:1px solid var(--border);flex-wrap:wrap"></div>
+  </div></div>
 </div>
 
-<!-- ══════════════════════════════════
-     ALERTS
-══════════════════════════════════ -->
+<!-- LOGIN LOG -->
+<div class="page" id="page-logins">
+  <div class="section-title mb-12">Login Activity Log</div>
+  <div class="card"><div class="card-body" style="padding:0">
+    <div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Date</th><th>Time</th><th>Device</th></tr></thead><tbody id="loginLogBody"></tbody></table></div>
+  </div></div>
+</div>
+
+<!-- ALERTS -->
 <div class="page" id="page-alerts">
-  <div class="section-title mb-16">Inactive Picker Alerts (30+ days)</div>
+  <div class="section-title mb-12">Inactive Picker Alerts (30+ days)</div>
   <div id="alertsList"></div>
 </div>
 
-<!-- ══════════════════════════════════
-     PRINT / KPI REPORT
-══════════════════════════════════ -->
+<!-- PRINT -->
 <div class="page" id="page-print">
-  <div class="no-print flex-c gap-8 mb-16">
+  <div class="no-print flex-c gap-8 mb-12">
     <button class="btn btn-primary" onclick="window.print()">🖨️ Print / Save PDF</button>
-    <button class="btn btn-ghost" onclick="showPage('dashboard',null)">← Back to Dashboard</button>
+    <button class="btn btn-ghost" onclick="showPage('dashboard',null)">← Back</button>
   </div>
   <div id="printContent"></div>
 </div>
 
-<!-- ══════════════════════════════════
-     SETTINGS
-══════════════════════════════════ -->
+<!-- SETTINGS -->
 <div class="page" id="page-settings">
-  <div style="max-width:600px;margin:0 auto">
-    <div class="section-title mb-16">Settings</div>
-
-    <div class="card mb-16">
-      <div class="card-header"><div class="card-title">🎨 Appearance</div></div>
+  <div style="max-width:580px;margin:0 auto">
+    <div class="section-title mb-12">Settings</div>
+    <div class="card mb-12"><div class="card-header"><div class="card-title">🎨 Appearance</div></div>
+      <div class="card-body"><div class="toggle-row"><div><div style="font-size:13px;font-weight:500">Dark Mode</div><div class="text-xs text-muted">Switch theme</div></div>
+        <label class="toggle"><input type="checkbox" id="darkToggle" onchange="toggleDark()"><span class="toggle-slider"></span></label>
+      </div></div>
+    </div>
+    <div class="card mb-12"><div class="card-header"><div class="card-title">👥 User Management</div></div>
       <div class="card-body">
-        <div class="toggle-row">
-          <div><div class="toggle-label">Dark Mode</div><div class="text-sm text-muted">Switch between light and dark theme</div></div>
-          <label class="toggle"><input type="checkbox" id="darkToggle" onchange="toggleDark()"><span class="toggle-slider"></span></label>
+        <div class="alert alert-blue mb-10">To change any PIN, first enter the passphrase <strong>NYMETS</strong> when prompted.</div>
+        <div class="form-group"><label>Add New User</label>
+          <div class="flex gap-8"><input type="text" id="newUserName" placeholder="Full Name" style="flex:2"><select id="newUserRole" style="flex:1"><option value="picker">Picker</option><option value="manager">IC Manager</option></select><button class="btn btn-primary btn-sm" onclick="addUser()">Add</button></div>
+        </div>
+        <div id="userListSettings" style="margin-top:10px"></div>
+      </div>
+    </div>
+    <div class="card mb-12"><div class="card-header"><div class="card-title">🔑 Change PIN</div></div>
+      <div class="card-body">
+        <div class="form-row">
+          <div class="form-group"><label>Select User</label><select id="changePinUser" class="w-auto" style="width:100%"></select></div>
+          <div class="form-group"><label>New PIN (4 digits)</label><input type="password" id="changePinVal" placeholder="----" maxlength="4" style="width:100%"></div>
+          <div class="form-group" style="flex:0;display:flex;align-items:flex-end"><button class="btn btn-primary btn-sm" onclick="initiateChangePin()">Save</button></div>
         </div>
       </div>
     </div>
-
-    <div class="card mb-16">
-      <div class="card-header"><div class="card-title">🔑 Security</div></div>
-      <div class="card-body">
-        <div class="form-group"><label>Change Admin PIN (4 digits)</label>
-          <div class="flex gap-8">
-            <input type="password" id="newPin" placeholder="New PIN" maxlength="4" style="width:120px">
-            <button class="btn btn-primary btn-sm" onclick="savePin()">Save PIN</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header"><div class="card-title">🗑️ Data Management</div></div>
-      <div class="card-body">
-        <div class="danger-zone">
-          <div class="bold mb-8" style="color:var(--red)">⚠️ Danger Zone</div>
-          <div class="text-sm mb-12" style="color:var(--red)">This will permanently delete ALL order data. This action cannot be undone.</div>
-          <button class="btn btn-danger" onclick="initiateClearData()">🗑️ Clear All Order Data</button>
-        </div>
-      </div>
+    <div class="card"><div class="card-header"><div class="card-title">🗑️ Data Management</div></div>
+      <div class="card-body"><div class="danger-zone">
+        <div class="bold mb-6" style="color:var(--red);font-size:13px">⚠️ Danger Zone — Master Data Reset</div>
+        <div class="text-xs mb-10" style="color:var(--red)">Permanently deletes ALL order &amp; shortage data. Requires Master Reset PIN.</div>
+        <button class="btn btn-danger btn-sm" onclick="initiateClearData()">🗑️ Clear All Order Data</button>
+      </div></div>
     </div>
   </div>
 </div>
 
 </div><!-- /main -->
+</div><!-- /mainApp -->
 
-<!-- ══════════════════════════════════
-     MODALS
-══════════════════════════════════ -->
-
-<!-- Picker Confirm -->
+<!-- ═══ MODALS ═══ -->
 <div class="modal-overlay modal-sm" id="confirmPickerModal">
-  <div class="modal">
-    <div class="modal-head"><div class="modal-title">Confirm Picker</div><span class="modal-x" onclick="closeModal('confirmPickerModal')">×</span></div>
-    <div class="modal-body">
-      <div class="text-c mb-12" style="font-size:15px">Is this the correct picker?</div>
-      <div class="text-c" style="font-size:24px;font-weight:700;color:var(--accent)" id="confirmPickerName"></div>
-      <div class="text-c text-sm text-muted mt-4" id="confirmPickerShift"></div>
+  <div class="modal"><div class="modal-head"><div class="modal-title">Confirm Picker</div><span class="modal-x" onclick="closeModal('confirmPickerModal')">×</span></div>
+    <div class="modal-body text-c">
+      <div class="text-xs text-muted mb-8">Is this the correct picker?</div>
+      <div style="font-size:20px;font-weight:700;color:var(--accent)" id="confirmPickerName"></div>
+      <div class="text-xs text-muted mt-4" id="confirmPickerShift"></div>
     </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal('confirmPickerModal')">✗ No, Change</button>
-      <button class="btn btn-primary" onclick="confirmPickerAndSubmit()">✓ Yes, Correct</button>
-    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('confirmPickerModal')">✗ No, Change</button><button class="btn btn-primary" onclick="confirmPickerAndSubmit()">✓ Yes, Correct</button></div>
   </div>
 </div>
 
-<!-- Shortage Modal -->
 <div class="modal-overlay modal-lg" id="shortageModal">
-  <div class="modal">
-    <div class="modal-head"><div class="modal-title">📦 Shortage Report</div><span class="modal-x" onclick="skipShortage()">×</span></div>
+  <div class="modal"><div class="modal-head"><div class="modal-title">📦 Shortage Report</div><span class="modal-x" onclick="skipShortage()">×</span></div>
     <div class="modal-body">
-      <div class="alert alert-amber mb-14">Were there any shortages on this order? Add them below or skip to complete the order.</div>
-      <div class="text-sm text-muted mb-12" id="shortageOrderLabel"></div>
+      <div class="alert alert-amber">Were there any shortages? Add items or click "No Shortages" to complete.</div>
+      <div class="text-xs mono bold mb-8 text-muted" id="shortageOrderLabel"></div>
+      <div style="display:grid;grid-template-columns:2fr 2fr 1fr 26px;gap:5px;margin-bottom:4px">
+        <div class="text-xs bold text-muted">PRODUCT #</div><div class="text-xs bold text-muted">BIN</div><div class="text-xs bold text-muted">QTY SHORT</div><div></div>
+      </div>
       <div id="shortageList"></div>
       <button class="btn btn-ghost btn-sm mt-8" onclick="addShortageRow()">+ Add Item</button>
+      <div class="alert alert-blue mt-10" style="margin-bottom:0">Picker receives credit for <strong id="shortPickedPrev">—</strong> lines (total minus qty shorted). Lines/Hr KPI is based on successful picks only.</div>
     </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="skipShortage()">No Shortages — Complete</button>
-      <button class="btn btn-amber" onclick="submitWithShortage()">Submit with Shortages → Back Order</button>
-    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="skipShortage()">No Shortages — Complete</button><button class="btn btn-amber" onclick="submitWithShortage()">Submit Shortages → Back Order</button></div>
   </div>
 </div>
 
-<!-- Add Picker Modal -->
+<div class="modal-overlay modal-sm" id="resolveModal">
+  <div class="modal"><div class="modal-head"><div class="modal-title">Resolve Shortage</div><span class="modal-x" onclick="closeModal('resolveModal')">×</span></div>
+    <div class="modal-body">
+      <div class="mono bold mb-8" id="resolveLabel" style="font-size:12px;color:var(--text2)"></div>
+      <div class="form-group"><label>Resolution</label>
+        <select id="resolveType"><option value="">Select…</option><option value="located">✅ Item Located — Found in warehouse</option><option value="backorder">📦 Back Order — Unable to locate</option></select>
+      </div>
+      <div class="form-group"><label>Notes (optional)</label><textarea id="resolveNotes" rows="2" placeholder="Add notes…"></textarea></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('resolveModal')">Cancel</button><button class="btn btn-primary" onclick="submitResolve()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay modal-xl" id="wmsModal">
+  <div class="modal"><div class="modal-head"><div class="modal-title">📥 WMS Apprise Inventory Adjustment Export</div><span class="modal-x" onclick="closeModal('wmsModal')">×</span></div>
+    <div class="modal-body">
+      <div class="alert alert-blue mb-10">This file will contain all <strong>unresolved shortage items</strong> formatted for Apprise WMS import. Columns: Product Code, Location, Bin, Lot, Serial#, UOM, Qty (negative), Adjustment Code, Remarks.</div>
+      <div id="wmsPreviewWrap"></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('wmsModal')">Cancel</button><button class="btn btn-success" onclick="downloadWmsFile()">⬇️ Download Excel File</button></div>
+  </div>
+</div>
+
 <div class="modal-overlay modal-sm" id="addPickerModal">
-  <div class="modal">
-    <div class="modal-head"><div class="modal-title">Add New Picker</div><span class="modal-x" onclick="closeModal('addPickerModal')">×</span></div>
+  <div class="modal"><div class="modal-head"><div class="modal-title">Add New Picker</div><span class="modal-x" onclick="closeModal('addPickerModal')">×</span></div>
     <div class="modal-body">
       <div class="form-group"><label>Full Name</label><input type="text" id="newPickerName" placeholder="First Last"></div>
       <div class="form-group"><label>Default Shift</label><select id="newPickerShift"><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select></div>
     </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="closeModal('addPickerModal')">Cancel</button>
-      <button class="btn btn-primary" id="savePickerBtn" onclick="savePicker()">Add Picker</button>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('addPickerModal')">Cancel</button><button class="btn btn-primary" id="savePickerBtn" onclick="savePicker()">Add Picker</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay modal-sm" id="pinPromptModal">
+  <div class="modal"><div class="modal-head"><div class="modal-title" id="ppTitle">🔐 Enter PIN</div><span class="modal-x" onclick="closeModal('pinPromptModal')">×</span></div>
+    <div class="modal-body text-c">
+      <div class="text-xs text-muted mb-8" id="ppSub"></div>
+      <div class="pin-dots" id="ppd"><div class="pin-dot" id="pp0"></div><div class="pin-dot" id="pp1"></div><div class="pin-dot" id="pp2"></div><div class="pin-dot" id="pp3"></div></div>
+      <div class="numpad" id="ppNumpad"></div>
+      <div id="ppError" style="color:var(--red);font-size:12px;margin-top:6px;min-height:15px"></div>
     </div>
   </div>
 </div>
 
-<!-- PIN Modal -->
-<div class="modal-overlay modal-sm" id="pinModal">
-  <div class="modal">
-    <div class="modal-head"><div class="modal-title" id="pinModalTitle">🔐 Enter Admin PIN</div><span class="modal-x" onclick="closeModal('pinModal')">×</span></div>
+<div class="modal-overlay modal-sm" id="passphraseModal">
+  <div class="modal"><div class="modal-head"><div class="modal-title">🔑 Enter Passphrase</div><span class="modal-x" onclick="closeModal('passphraseModal')">×</span></div>
     <div class="modal-body">
-      <div class="text-c text-sm text-muted mb-8" id="pinModalSub">Enter the 4-digit admin PIN to continue.</div>
-      <div class="pin-dots" id="pinDots">
-        <div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div>
-        <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:200px;margin:0 auto">
-        <button class="btn btn-ghost" onclick="pinKey('1')">1</button><button class="btn btn-ghost" onclick="pinKey('2')">2</button><button class="btn btn-ghost" onclick="pinKey('3')">3</button>
-        <button class="btn btn-ghost" onclick="pinKey('4')">4</button><button class="btn btn-ghost" onclick="pinKey('5')">5</button><button class="btn btn-ghost" onclick="pinKey('6')">6</button>
-        <button class="btn btn-ghost" onclick="pinKey('7')">7</button><button class="btn btn-ghost" onclick="pinKey('8')">8</button><button class="btn btn-ghost" onclick="pinKey('9')">9</button>
-        <button class="btn btn-ghost" onclick="pinKey('⌫')" style="grid-column:1">⌫</button><button class="btn btn-ghost" onclick="pinKey('0')" style="grid-column:2">0</button>
-      </div>
-      <div id="pinError" class="text-c" style="color:var(--red);font-size:13px;margin-top:10px;min-height:20px"></div>
+      <div class="text-sm text-muted mb-8">Enter the secret passphrase to reset a PIN.</div>
+      <div class="form-group"><label>Passphrase</label><input type="password" id="passphraseInput" placeholder="Enter passphrase" autocomplete="off"></div>
+      <div id="passphraseError" style="color:var(--red);font-size:12px;min-height:15px"></div>
     </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('passphraseModal')">Cancel</button><button class="btn btn-primary" onclick="verifyPassphrase()">Verify</button></div>
   </div>
 </div>
 
-<!-- Inactive Alert Modal -->
 <div class="modal-overlay modal-sm" id="inactiveModal">
-  <div class="modal">
-    <div class="modal-head"><div class="modal-title">⚠️ Inactive Picker</div><span class="modal-x" onclick="closeModal('inactiveModal')">×</span></div>
+  <div class="modal"><div class="modal-head"><div class="modal-title">⚠️ Inactive Picker</div><span class="modal-x" onclick="closeModal('inactiveModal')">×</span></div>
     <div class="modal-body">
-      <p id="inactiveText" class="mb-12" style="font-size:14px"></p>
-      <div class="alert alert-amber" style="margin-bottom:0">No activity in over 30 days. Please confirm their status.</div>
+      <p id="inactiveText" class="mb-10" style="font-size:13px"></p>
+      <div class="alert alert-amber" style="margin-bottom:0">No activity in 30+ days.</div>
     </div>
-    <div class="modal-foot">
-      <button class="btn btn-ghost" onclick="doArchivePicker()">Archive Picker</button>
-      <button class="btn btn-primary" onclick="doConfirmActive()">Still Active</button>
-    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="doArchivePicker()">Archive</button><button class="btn btn-primary" onclick="doConfirmActive()">Still Active</button></div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     FIREBASE + APP LOGIC
-══════════════════════════════════ -->
 <script type="module">
 import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, doc, addDoc, updateDoc,
-         getDocs, onSnapshot, writeBatch, deleteDoc }
+         getDocs, onSnapshot, writeBatch }
                                from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ── CONFIG ──────────────────────────────────────────
-const firebaseConfig = {
-  apiKey:            "AIzaSyBNaKQfWWdQy_ANW3cNyiBQ29jgkAqh10o",
-  authDomain:        "picker-and-order-tracker.firebaseapp.com",
-  projectId:         "picker-and-order-tracker",
-  storageBucket:     "picker-and-order-tracker.firebasestorage.app",
-  messagingSenderId: "15560905356",
-  appId:             "1:15560905356:web:16e7e2dbea2fb2549c21a9"
+// ── CONFIG ───────────────────────────────────────────
+const fbConfig = {
+  apiKey:"AIzaSyBNaKQfWWdQy_ANW3cNyiBQ29jgkAqh10o",
+  authDomain:"picker-and-order-tracker.firebaseapp.com",
+  projectId:"picker-and-order-tracker",
+  storageBucket:"picker-and-order-tracker.firebasestorage.app",
+  messagingSenderId:"15560905356",
+  appId:"1:15560905356:web:16e7e2dbea2fb2549c21a9"
 };
-const fbApp = initializeApp(firebaseConfig);
+const fbApp = initializeApp(fbConfig);
 const db    = getFirestore(fbApp);
 
 // ── CONSTANTS ────────────────────────────────────────
-const DIV = {
-  GT:{name:'TAG',          color:'#1d6ef5'},
-  NH:{name:'NAPA',         color:'#16a34a'},
-  FS:{name:'Forside',      color:'#d97706'},
-  EE:{name:'Ever Ellis',   color:'#7c3aed'},
-  BC:{name:'Beachcombers', color:'#0891b2'},
-  VP:{name:'VIP',          color:'#db2777'},
-  TP:{name:'Transpac',     color:'#ea580c'},
-};
-const DIV_BADGE_CLS = {GT:'bg-blue',NH:'bg-green',FS:'bg-amber',EE:'bg-purple',BC:'bg-teal',VP:'bg-purple',TP:'bg-orange'};
+const DIV = {GT:{name:'TAG',color:'#1d6ef5'},NH:{name:'NAPA',color:'#16a34a'},FS:{name:'Forside',color:'#d97706'},EE:{name:'Ever Ellis',color:'#7c3aed'},BC:{name:'Beachcombers',color:'#0891b2'},VP:{name:'VIP',color:'#db2777'},TP:{name:'Transpac',color:'#ea580c'}};
+const DIV_BADGE = {GT:'bg-blue',NH:'bg-green',FS:'bg-amber',EE:'bg-purple',BC:'bg-teal',VP:'bg-purple',TP:'bg-orange'};
+const PASSPHRASE = 'NYMETS';
+
+// ── DEFAULT PINS (stored in localStorage, 3 separate) ─
+// Keys: wpt_pin_login, wpt_pin_icm, wpt_pin_reset
+function getPin(k){return localStorage.getItem('wpt_pin_'+k)||({login:'1111',icm:'2222',reset:'3333'}[k])}
+function setPin(k,v){localStorage.setItem('wpt_pin_'+k,v)}
+
+// ── USERS (stored in localStorage for simplicity) ────
+// [{name, role:'picker'|'manager', initials}]
+function getUsers(){
+  const u=localStorage.getItem('wpt_users');
+  if(u)return JSON.parse(u);
+  return [{name:'IC Manager',role:'manager',initials:'IC'},{name:'General User',role:'picker',initials:'GU'}];
+}
+function saveUsers(u){localStorage.setItem('wpt_users',JSON.stringify(u))}
+
+// ── SESSION ──────────────────────────────────────────
+let currentUser = null;
 
 // ── CACHE ────────────────────────────────────────────
-let ORDERS  = [];
-let PICKERS = [];
-let SHORTAGES = [];  // {id, orderId, orderNum, division, pickerName, date, product, bin, qty}
-
-// ── SETTINGS ─────────────────────────────────────────
-let adminPin = localStorage.getItem('wpt_pin') || '1234';
-let pinEntry = '';
-let pinCallback = null;
+let ORDERS=[], PICKERS=[], SHORTAGES=[], LOGIN_LOG=[];
 
 // ── UTILS ────────────────────────────────────────────
-const divCode  = n => { const u=(n||'').toUpperCase(); return Object.keys(DIV).find(c=>u.startsWith(c))||null; };
-const tsMs     = t => { if(!t)return null; if(typeof t==='object'&&t.toMillis)return t.toMillis(); return +t||null; };
-const fmtTime  = ms => ms ? new Date(ms).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : '—';
-const fmtDate  = ms => ms ? new Date(ms).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
-const fmtDur   = ms => { if(!ms||ms<0)return'—'; const m=Math.round(ms/60000); return m<60?m+' min':(m/60).toFixed(1)+' hr'; };
-const todayStr = ()  => new Date().toISOString().slice(0,10);
-const wkStart  = ()  => { const d=new Date();d.setDate(d.getDate()-d.getDay());d.setHours(0,0,0,0);return d.getTime(); };
-const moStart  = ()  => { const d=new Date();d.setDate(1);d.setHours(0,0,0,0);return d.getTime(); };
+const divCode  = n=>{const u=(n||'').toUpperCase();return Object.keys(DIV).find(c=>u.startsWith(c))||null};
+const tsMs     = t=>{if(!t)return null;if(typeof t==='object'&&t.toMillis)return t.toMillis();return+t||null};
+const fmtTime  = ms=>ms?new Date(ms).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}):'—';
+const fmtDate  = ms=>ms?new Date(ms).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+const fmtDur   = ms=>{if(!ms||ms<0)return'—';const m=Math.round(ms/60000);return m<60?m+' min':(m/60).toFixed(1)+' hr'};
+const todayStr = ()=>new Date().toISOString().slice(0,10);
+const wkStart  = ()=>{const d=new Date();d.setDate(d.getDate()-d.getDay());d.setHours(0,0,0,0);return d.getTime()};
+const moStart  = ()=>{const d=new Date();d.setDate(1);d.setHours(0,0,0,0);return d.getTime()};
+function byPeriod(arr,p){if(p==='today')return arr.filter(o=>o.date===todayStr());if(p==='week')return arr.filter(o=>o.startTs>=wkStart());if(p==='month')return arr.filter(o=>o.startTs>=moStart());return arr}
+function divBadge(code){if(!code)return'<span class="badge bg-gray">—</span>';return`<span class="badge ${DIV_BADGE[code]||'bg-gray'}">${DIV[code]?.name||code}</span>`}
+function shiftBadge(s){return`<span class="badge ${s==='1st'?'bg-blue':'bg-purple'}">${s}</span>`}
+function statusBadgeOrder(s){const m={open:'<span class="badge bg-blue">● Open</span>',closed:'<span class="badge bg-green">✓ Done</span>',backorder:'<span class="badge bg-amber">🔄 Back Order</span>',backorder_done:'<span class="badge bg-teal">✓ B/O Done</span>'};return m[s]||'<span class="badge bg-gray">—</span>'}
 
-function byPeriod(arr, p) {
-  if(p==='today') return arr.filter(o=>o.date===todayStr());
-  if(p==='week')  return arr.filter(o=>o.startTs>=wkStart());
-  if(p==='month') return arr.filter(o=>o.startTs>=moStart());
-  return arr;
+// ── LOGIN SYSTEM ─────────────────────────────────────
+let loginPinEntry='', loginTarget=null;
+
+function buildLoginScreen(){
+  const users=getUsers();
+  const ul=document.getElementById('loginUserList');
+  ul.innerHTML=users.map(u=>`<button class="user-select-btn" onclick="selectLoginUser('${u.name}')"><span style="font-size:18px">${u.role==='manager'?'🛡️':'👤'}</span><div><div>${u.name}</div><div style="font-size:10px;color:var(--text3)">${u.role==='manager'?'IC Manager':'Picker / Staff'}</div></div></button>`).join('');
+  buildNumpad('loginNumpad', loginNumpadKey);
 }
-function divBadge(code) {
-  if(!code) return '<span class="badge bg-gray">Unknown</span>';
-  return `<span class="badge ${DIV_BADGE_CLS[code]||'bg-gray'}">${DIV[code]?.name||code}</span>`;
+
+window.selectLoginUser = function(name){
+  loginTarget=name; loginPinEntry='';
+  document.getElementById('loginSelectedLabel').textContent=name;
+  document.getElementById('loginStep1').style.display='none';
+  document.getElementById('loginStep2').style.display='block';
+  updateLoginDots();
+  document.getElementById('loginError').textContent='';
+};
+
+window.loginBack = function(){
+  document.getElementById('loginStep1').style.display='block';
+  document.getElementById('loginStep2').style.display='none';
+  loginPinEntry=''; loginTarget=null;
+};
+
+function loginNumpadKey(k){
+  if(k==='⌫'){loginPinEntry=loginPinEntry.slice(0,-1);}
+  else if(loginPinEntry.length<4){loginPinEntry+=k;}
+  updateLoginDots();
+  document.getElementById('loginError').textContent='';
+  if(loginPinEntry.length===4){
+    setTimeout(()=>{
+      const correct=getPin('login');
+      if(loginPinEntry===correct){
+        loginSuccess(loginTarget);
+      } else {
+        document.getElementById('loginError').textContent='Incorrect PIN. Try again.';
+        document.querySelectorAll('#ld .pin-dot').forEach(d=>d.classList.add('error'));
+        setTimeout(()=>{loginPinEntry='';updateLoginDots();document.querySelectorAll('#ld .pin-dot').forEach(d=>d.classList.remove('error'));},600);
+      }
+    },120);
+  }
 }
-function shiftBadge(s) { return `<span class="badge ${s==='1st'?'bg-blue':'bg-purple'}">${s}</span>`; }
+
+function updateLoginDots(){
+  for(let i=0;i<4;i++){const d=document.getElementById('ld'+i);if(d)d.classList.toggle('filled',i<loginPinEntry.length);}
+}
+
+async function loginSuccess(name){
+  currentUser=getUsers().find(u=>u.name===name)||{name,role:'picker',initials:name.slice(0,2).toUpperCase()};
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+  // Update header
+  document.getElementById('userNameDisplay').textContent=name;
+  document.getElementById('userAvatar').textContent=currentUser.initials||(name.slice(0,2).toUpperCase());
+  // Log login to Firestore
+  try{
+    await addDoc(collection(db,'loginLog'),{name,role:currentUser.role,ts:Date.now(),date:todayStr(),ua:navigator.userAgent.slice(0,80)});
+  }catch(e){}
+}
+
+// ── PIN PROMPT SYSTEM ────────────────────────────────
+let ppEntry='', ppExpected='', ppCallback=null;
+
+function requirePin(pinKey, title, sub, cb){
+  ppExpected=getPin(pinKey); ppEntry=''; ppCallback=cb;
+  document.getElementById('ppTitle').textContent=title||'🔐 Enter PIN';
+  document.getElementById('ppSub').textContent=sub||'';
+  for(let i=0;i<4;i++){const d=document.getElementById('pp'+i);if(d){d.classList.remove('filled','error');}}
+  document.getElementById('ppError').textContent='';
+  buildNumpad('ppNumpad', ppNumpadKey);
+  openModal('pinPromptModal');
+}
+
+function ppNumpadKey(k){
+  if(k==='⌫'){ppEntry=ppEntry.slice(0,-1);}
+  else if(ppEntry.length<4){ppEntry+=k;}
+  for(let i=0;i<4;i++){const d=document.getElementById('pp'+i);if(d)d.classList.toggle('filled',i<ppEntry.length);}
+  document.getElementById('ppError').textContent='';
+  if(ppEntry.length===4){
+    setTimeout(()=>{
+      if(ppEntry===ppExpected){
+        ppEntry=''; closeModal('pinPromptModal');
+        if(ppCallback){ppCallback();ppCallback=null;}
+      } else {
+        document.getElementById('ppError').textContent='Incorrect PIN.';
+        document.querySelectorAll('#ppd .pin-dot').forEach(d=>d.classList.add('error'));
+        setTimeout(()=>{ppEntry='';for(let i=0;i<4;i++){const d=document.getElementById('pp'+i);if(d){d.classList.remove('filled','error');}}},600);
+      }
+    },120);
+  }
+}
+
+// ── PASSPHRASE (for PIN reset) ────────────────────────
+let passphraseCallback=null;
+window.initiateChangePin = function(){
+  passphraseCallback=doChangePin;
+  document.getElementById('passphraseInput').value='';
+  document.getElementById('passphraseError').textContent='';
+  openModal('passphraseModal');
+};
+window.verifyPassphrase = function(){
+  const val=document.getElementById('passphraseInput').value.trim().toUpperCase();
+  if(val===PASSPHRASE){closeModal('passphraseModal');if(passphraseCallback){passphraseCallback();passphraseCallback=null;}}
+  else{document.getElementById('passphraseError').textContent='Incorrect passphrase.';}
+};
+
+function doChangePin(){
+  const user=document.getElementById('changePinUser').value;
+  const newP=document.getElementById('changePinVal').value.trim();
+  if(!/^\d{4}$/.test(newP)){alert('PIN must be 4 digits.');return;}
+  if(user==='__login__'){setPin('login',newP);}
+  else if(user==='__icm__'){setPin('icm',newP);}
+  else if(user==='__reset__'){setPin('reset',newP);}
+  document.getElementById('changePinVal').value='';
+  alert('PIN updated successfully.');
+}
+
+// ── NUMPAD BUILDER ───────────────────────────────────
+function buildNumpad(containerId, handler){
+  const el=document.getElementById(containerId);
+  if(!el)return;
+  const keys=['1','2','3','4','5','6','7','8','9','⌫','0',''];
+  el.innerHTML=keys.map(k=>k?`<button class="numpad-btn" onclick="(${handler.name}||window.__np_${containerId})('${k}')">${k}</button>`:'<div></div>').join('');
+  // Bind directly since module scope isn't global
+  el.querySelectorAll('.numpad-btn').forEach(btn=>{
+    btn.onclick=()=>handler(btn.textContent);
+  });
+}
 
 // ── FIREBASE LISTENERS ────────────────────────────────
-function startListeners() {
-  onSnapshot(collection(db,'orders'), snap => {
-    ORDERS = snap.docs.map(d => {
-      const x=d.data();
-      return { id:d.id, orderNum:x.orderNum, division:x.division, pickerName:x.pickerName,
-               shift:x.shift, date:x.date, startTs:tsMs(x.startTs), endTs:tsMs(x.endTs),
-               status:x.status, lines:x.lines||0, hasShortage:x.hasShortage||false,
-               backorderDone:x.backorderDone||false };
-    });
-    refreshAll();
+function startListeners(){
+  onSnapshot(collection(db,'orders'),snap=>{
+    ORDERS=snap.docs.map(d=>{const x=d.data();return{id:d.id,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,shift:x.shift,date:x.date,startTs:tsMs(x.startTs),endTs:tsMs(x.endTs),status:x.status,lines:x.lines||0,pickedLines:x.pickedLines!==undefined?x.pickedLines:x.lines||0,hasShortage:x.hasShortage||false,backorderDone:x.backorderDone||false}});
+    renderTodayFeed();updateBadges();
+    const pg=activePage();
+    if(pg==='dashboard')renderDashboard();if(pg==='open-orders')renderOpenOrders();if(pg==='divisions')renderDivisions();if(pg==='open24')renderOpen24();if(pg==='archive')renderArchive();if(pg==='backorder')renderBackorder();
   });
-  onSnapshot(collection(db,'pickers'), snap => {
-    PICKERS = snap.docs.map(d => {
-      const x=d.data();
-      return { id:d.id, name:x.name, shift:x.shift, addedTs:tsMs(x.addedTs),
-               lastActiveTs:tsMs(x.lastActiveTs), archived:x.archived||false };
-    });
-    refreshDatalist(); populateArchPickers(); updateBadges();
-    const pg = activePage();
-    if(pg==='pickers') renderPickers();
-    if(pg==='alerts')  renderAlerts();
+  onSnapshot(collection(db,'pickers'),snap=>{
+    PICKERS=snap.docs.map(d=>{const x=d.data();return{id:d.id,name:x.name,shift:x.shift,addedTs:tsMs(x.addedTs),lastActiveTs:tsMs(x.lastActiveTs),archived:x.archived||false}});
+    refreshDatalist();populateArchPickers();updateBadges();
+    const pg=activePage();if(pg==='pickers')renderPickers();if(pg==='alerts')renderAlerts();
   });
-  onSnapshot(collection(db,'shortages'), snap => {
-    SHORTAGES = snap.docs.map(d => {
-      const x=d.data();
-      return { id:d.id, orderId:x.orderId, orderNum:x.orderNum, division:x.division,
-               pickerName:x.pickerName, date:x.date, product:x.product, bin:x.bin, qty:x.qty||0 };
-    });
-    updateBadges();
-    const pg = activePage();
-    if(pg==='shortages') renderShortages();
-    if(pg==='backorder') renderBackorder();
+  onSnapshot(collection(db,'shortages'),snap=>{
+    SHORTAGES=snap.docs.map(d=>{const x=d.data();return{id:d.id,orderId:x.orderId,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,date:x.date,product:x.product,bin:x.bin,qty:x.qty||0,resolution:x.resolution||'pending',notes:x.notes||'',startTs:tsMs(x.startTs)}});
+    updateBadges();const pg=activePage();if(pg==='shortages')renderShortages();if(pg==='backorder')renderBackorder();
+  });
+  onSnapshot(collection(db,'loginLog'),snap=>{
+    LOGIN_LOG=snap.docs.map(d=>{const x=d.data();return{id:d.id,name:x.name,role:x.role,ts:tsMs(x.ts),date:x.date,ua:x.ua}}).sort((a,b)=>b.ts-a.ts);
+    if(activePage()==='logins')renderLoginLog();
   });
 }
 
-function refreshAll() {
-  renderTodayFeed(); updateBadges();
-  const pg = activePage();
-  if(pg==='dashboard')   renderDashboard();
-  if(pg==='open-orders') renderOpenOrders();
-  if(pg==='divisions')   renderDivisions();
-  if(pg==='open24')      renderOpen24();
-  if(pg==='archive')     renderArchive();
-  if(pg==='backorder')   renderBackorder();
-}
-
-function activePage() { return document.querySelector('.page.active')?.id?.replace('page-',''); }
-
-// ── PENDING SCAN STATE ───────────────────────────────
-let pendingScan = null;
+const activePage=()=>document.querySelector('.page.active')?.id?.replace('page-','')||'';
 
 // ── SCAN ─────────────────────────────────────────────
-let busy = false;
-window.processOrder = function() {
-  if(busy) return;
-  const orderRaw  = document.getElementById('scanOrder').value.trim();
-  const linesVal  = parseInt(document.getElementById('scanLines').value) || 0;
-  const pickerRaw = document.getElementById('scanPicker').value.trim();
-  const shift     = document.getElementById('scanShift').value;
-  if(!orderRaw||!pickerRaw) { showSR('sr-warn','⚠️ Missing Info','Enter order number and picker name.'); return; }
+let busy=false, pendingScan=null;
 
-  pendingScan = { orderNum: orderRaw.toUpperCase(), lines: linesVal, pickerName: pickerRaw, shift };
-
-  // Confirm picker
-  document.getElementById('confirmPickerName').textContent = pickerRaw;
-  document.getElementById('confirmPickerShift').textContent = shift + ' Shift';
+window.processOrder=function(){
+  if(busy)return;
+  const orderRaw=document.getElementById('scanOrder').value.trim();
+  const linesVal=parseInt(document.getElementById('scanLines').value)||0;
+  const pickerRaw=document.getElementById('scanPicker').value.trim();
+  const shift=document.getElementById('scanShift').value;
+  if(!orderRaw||!pickerRaw){showSR('sr-warn','⚠️ Missing Info','Enter order number and picker name.');return;}
+  pendingScan={orderNum:orderRaw.toUpperCase(),lines:linesVal,pickerName:pickerRaw,shift};
+  document.getElementById('confirmPickerName').textContent=pickerRaw;
+  document.getElementById('confirmPickerShift').textContent=shift+' Shift';
   openModal('confirmPickerModal');
 };
 
-window.confirmPickerAndSubmit = async function() {
+window.confirmPickerAndSubmit=async function(){
   closeModal('confirmPickerModal');
-  if(!pendingScan) return;
+  if(!pendingScan)return;
   await doSubmit(pendingScan);
-  pendingScan = null;
+  pendingScan=null;
 };
 
-async function doSubmit({ orderNum, lines, pickerName, shift }) {
-  const norm    = pickerName.toLowerCase();
-  const division = divCode(orderNum);
-  const now     = Date.now();
-
-  busy=true; document.getElementById('submitBtn').disabled=true;
-  try {
+async function doSubmit({orderNum,lines,pickerName,shift}){
+  const norm=pickerName.toLowerCase();
+  const division=divCode(orderNum);
+  const now=Date.now();
+  busy=true;document.getElementById('submitBtn').disabled=true;
+  try{
     // Upsert picker
-    const existing = PICKERS.find(p=>p.name.toLowerCase()===norm);
-    if(!existing) {
-      await addDoc(collection(db,'pickers'),{name:pickerName,shift,addedTs:now,lastActiveTs:now,archived:false});
-    } else {
-      await updateDoc(doc(db,'pickers',existing.id),{lastActiveTs:now});
+    const ep=PICKERS.find(p=>p.name.toLowerCase()===norm);
+    if(!ep){await addDoc(collection(db,'pickers'),{name:pickerName,shift,addedTs:now,lastActiveTs:now,archived:false});}
+    else{await updateDoc(doc(db,'pickers',ep.id),{lastActiveTs:now});}
+
+    // Find open order – prevent duplicate
+    const openOrd=ORDERS.find(o=>o.orderNum===orderNum&&o.pickerName.toLowerCase()===norm&&o.status==='open');
+    if(openOrd){
+      // Second scan → prompt shortage
+      showShortageModal(openOrd,now);
+      return;
     }
 
-    // Find open order
-    const openOrd = ORDERS.find(o=>o.orderNum===orderNum&&o.pickerName.toLowerCase()===norm&&o.status==='open');
-    if(openOrd) {
-      // Prompt for shortages before closing
-      showShortageModal(openOrd, now);
-      return; // doSubmit will continue in shortage callbacks
-    } else {
-      const alreadyDone = ORDERS.find(o=>o.orderNum===orderNum&&o.date===todayStr()&&(o.status==='closed'||o.status==='backorder'||o.status==='backorder_done'));
-      if(alreadyDone) {
-        showSR('sr-warn','⚠️ Already Processed',`${orderNum} was already completed today.`);
-      } else {
-        await addDoc(collection(db,'orders'),{orderNum,division,pickerName,shift,date:todayStr(),startTs:now,endTs:null,status:'open',lines,hasShortage:false,backorderDone:false});
-        showSR('sr-open','🔵 Order Started',`${orderNum} (${division?DIV[division].name:'Unknown'}) opened for ${pickerName} at ${fmtTime(now)}`);
-        clearScanForm();
-      }
+    // DUPLICATE CHECK: any non-archived order with same number already exists for today?
+    const existingToday=ORDERS.find(o=>o.orderNum===orderNum&&o.date===todayStr()&&o.status!=='open');
+    if(existingToday){
+      showSR('sr-warn','⚠️ Duplicate Order',`${orderNum} was already completed today. Order not created.`);
+      clearScanForm();return;
     }
-  } catch(e) {
-    showSR('sr-error','🔴 Firebase Error', e.message);
-  } finally {
-    busy=false; document.getElementById('submitBtn').disabled=false;
-  }
+    // Also check if open order already exists for a DIFFERENT picker (warn)
+    const openOtherPicker=ORDERS.find(o=>o.orderNum===orderNum&&o.status==='open');
+    if(openOtherPicker){
+      showSR('sr-warn','⚠️ Order Already Open',`${orderNum} is currently open for ${openOtherPicker.pickerName}. Cannot create duplicate.`);
+      clearScanForm();return;
+    }
+
+    // Create new open order
+    await addDoc(collection(db,'orders'),{orderNum,division,pickerName,shift,date:todayStr(),startTs:now,endTs:null,status:'open',lines,pickedLines:lines,hasShortage:false,backorderDone:false});
+    showSR('sr-open','🔵 Order Started',`${orderNum} (${division?DIV[division].name:'Unknown'}) opened for ${pickerName} at ${fmtTime(now)}`);
+    clearScanForm();
+  }catch(e){showSR('sr-error','🔴 Firebase Error',e.message);}
+  finally{busy=false;document.getElementById('submitBtn').disabled=false;}
 }
 
 // ── SHORTAGE MODAL ───────────────────────────────────
-let shortageTarget = null; // { order, closeTs }
-function showShortageModal(order, closeTs) {
-  shortageTarget = { order, closeTs };
-  document.getElementById('shortageOrderLabel').textContent = `Order: ${order.orderNum} · Picker: ${order.pickerName}`;
-  document.getElementById('shortageList').innerHTML = '';
+let shortageTarget=null;
+
+function showShortageModal(order,closeTs){
+  shortageTarget={order,closeTs};
+  document.getElementById('shortageOrderLabel').textContent=`Order: ${order.orderNum} · ${order.pickerName} · ${order.lines} lines on order`;
+  document.getElementById('shortageList').innerHTML='';
+  updateShortPickedPreview(order.lines,0);
   openModal('shortageModal');
-  busy=false; document.getElementById('submitBtn').disabled=false;
+  busy=false;document.getElementById('submitBtn').disabled=false;
 }
 
-window.addShortageRow = function() {
-  const row = document.createElement('div');
-  row.className = 'shortage-item';
-  row.innerHTML = `
-    <input type="text" placeholder="Product #" style="flex:2">
-    <input type="text" placeholder="Bin Location" style="flex:2">
-    <input type="number" placeholder="Qty" min="1" style="flex:1">
-    <button class="shortage-remove" onclick="this.parentElement.remove()">✕</button>
-  `;
+window.addShortageRow=function(){
+  const row=document.createElement('div');
+  row.className='shortage-item';
+  row.innerHTML=`<input type="text" placeholder="Product #" style="flex:2"><input type="text" placeholder="Bin" style="flex:2"><input type="number" placeholder="Qty" min="1" style="flex:1" oninput="recalcShortPreview()"><button class="shortage-remove" onclick="this.parentElement.remove();recalcShortPreview()">✕</button>`;
   document.getElementById('shortageList').appendChild(row);
 };
 
-window.skipShortage = async function() {
-  if(!shortageTarget) { closeModal('shortageModal'); return; }
-  const {order, closeTs} = shortageTarget;
-  shortageTarget = null;
-  closeModal('shortageModal');
-  await updateDoc(doc(db,'orders',order.id),{endTs:closeTs,status:'closed',hasShortage:false});
-  showSR('sr-closed','✅ Order Completed',`${order.orderNum} closed. Duration: ${fmtDur(closeTs-order.startTs)}`);
+window.recalcShortPreview=function(){
+  if(!shortageTarget)return;
+  const rows=document.querySelectorAll('#shortageList .shortage-item');
+  let totalShort=0;rows.forEach(r=>{const inp=r.querySelectorAll('input');totalShort+=parseInt(inp[2]?.value)||0;});
+  updateShortPickedPreview(shortageTarget.order.lines,totalShort);
+};
+
+function updateShortPickedPreview(total,shorted){
+  const picked=Math.max(0,total-shorted);
+  document.getElementById('shortPickedPrev').textContent=`${picked} of ${total}`;
+}
+
+window.skipShortage=async function(){
+  if(!shortageTarget){closeModal('shortageModal');return;}
+  const{order,closeTs}=shortageTarget;shortageTarget=null;closeModal('shortageModal');
+  await updateDoc(doc(db,'orders',order.id),{endTs:closeTs,status:'closed',hasShortage:false,pickedLines:order.lines});
+  showSR('sr-closed','✅ Order Completed',`${order.orderNum} closed. Duration: ${fmtDur(closeTs-order.startTs)}. ${order.lines} lines credited.`);
   clearScanForm();
 };
 
-window.submitWithShortage = async function() {
-  if(!shortageTarget) return;
-  const {order, closeTs} = shortageTarget;
-  const rows = document.querySelectorAll('#shortageList .shortage-item');
-  const items = [];
-  rows.forEach(r => {
-    const inputs = r.querySelectorAll('input');
-    const product = inputs[0].value.trim().toUpperCase();
-    const bin     = inputs[1].value.trim().toUpperCase();
-    const qty     = parseInt(inputs[2].value)||0;
-    if(product&&qty>0) items.push({product,bin,qty});
-  });
-
-  shortageTarget = null;
-  closeModal('shortageModal');
-
-  // Save shortages to Firestore
-  for(const item of items) {
-    await addDoc(collection(db,'shortages'),{
-      orderId:order.id, orderNum:order.orderNum, division:order.division,
-      pickerName:order.pickerName, date:order.date,
-      product:item.product, bin:item.bin, qty:item.qty
-    });
+window.submitWithShortage=async function(){
+  if(!shortageTarget)return;
+  const{order,closeTs}=shortageTarget;
+  const rows=document.querySelectorAll('#shortageList .shortage-item');
+  const items=[];
+  rows.forEach(r=>{const inp=r.querySelectorAll('input');const product=inp[0].value.trim().toUpperCase();const bin=inp[1].value.trim().toUpperCase();const qty=parseInt(inp[2].value)||0;if(product&&qty>0)items.push({product,bin,qty});});
+  shortageTarget=null;closeModal('shortageModal');
+  const totalShort=items.reduce((a,i)=>a+i.qty,0);
+  const pickedLines=Math.max(0,(order.lines||0)-totalShort);
+  for(const item of items){
+    await addDoc(collection(db,'shortages'),{orderId:order.id,orderNum:order.orderNum,division:order.division,pickerName:order.pickerName,date:order.date,product:item.product,bin:item.bin,qty:item.qty,resolution:'pending',notes:'',startTs:order.startTs||Date.now()});
   }
-
-  // Move order to backorder status
-  await updateDoc(doc(db,'orders',order.id),{
-    endTs:closeTs, status:'backorder', hasShortage:true, backorderDone:false
-  });
-
-  showSR('sr-warn','🔄 Order → Back Order',`${order.orderNum} moved to Back Order queue with ${items.length} shortage item(s).`);
+  // Picker gets credit for pickedLines (total minus shorted)
+  await updateDoc(doc(db,'orders',order.id),{endTs:closeTs,status:'backorder',hasShortage:true,backorderDone:false,pickedLines});
+  showSR('sr-warn','🔄 Back Order',`${order.orderNum} → Back Order. ${pickedLines} of ${order.lines} lines credited to ${order.pickerName}.`);
   clearScanForm();
 };
 
-function clearScanForm() {
-  document.getElementById('scanOrder').value='';
-  document.getElementById('scanLines').value='';
-  document.getElementById('scanOrder').focus();
-}
+function clearScanForm(){document.getElementById('scanOrder').value='';document.getElementById('scanLines').value='';document.getElementById('scanOrder').focus();}
 
-function showSR(cls, title, detail) {
-  const el=document.getElementById('scanResult');
-  el.className='scan-result '+cls;
-  el.innerHTML=`<div class="sr-title">${title}</div><div class="sr-detail">${detail}</div>`;
-  clearTimeout(el._t); el._t=setTimeout(()=>{el.className='scan-result';},6000);
-}
+function showSR(cls,title,detail){const el=document.getElementById('scanResult');el.className='scan-result '+cls;el.innerHTML=`<div class="sr-title">${title}</div><div class="sr-detail">${detail}</div>`;clearTimeout(el._t);el._t=setTimeout(()=>{el.className='scan-result';},7000);}
 
 // ── TODAY FEED ───────────────────────────────────────
-function renderTodayFeed() {
+function renderTodayFeed(){
   const list=ORDERS.filter(o=>o.date===todayStr()).slice().sort((a,b)=>b.startTs-a.startTs);
   const el=document.getElementById('todayFeed');
   if(!list.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No activity today yet</div></div>';return;}
-  el.innerHTML=list.map(o=>{
-    const statusBadge = o.status==='closed' ? '<span class="badge bg-green">✓ Done</span>'
-      : o.status==='backorder' ? '<span class="badge bg-amber">🔄 Back Order</span>'
-      : o.status==='backorder_done' ? '<span class="badge bg-teal">✓ B/O Done</span>'
-      : '<span class="badge bg-blue">● Open</span>';
-    return `<div style="padding:11px 15px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px">
-      <div><div class="mono bold" style="font-size:13px">${o.orderNum}</div><div class="text-sm text-muted">${o.pickerName} · ${o.shift} · ${o.lines} lines</div></div>
-      <div style="text-align:right;flex-shrink:0">${statusBadge}
-        <div class="text-xs text-muted" style="margin-top:3px">${o.endTs?fmtTime(o.startTs)+' → '+fmtTime(o.endTs):'Started '+fmtTime(o.startTs)}</div>
-      </div>
-    </div>`;
-  }).join('');
+  el.innerHTML=list.map(o=>`<div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:9px">
+    <div><div class="mono bold" style="font-size:12px">${o.orderNum}</div><div class="text-xs text-muted">${o.pickerName} · ${o.shift} · ${o.lines} lines</div></div>
+    <div style="text-align:right;flex-shrink:0">${statusBadgeOrder(o.status)}<div class="text-xs text-muted" style="margin-top:2px">${o.endTs?fmtTime(o.startTs)+' → '+fmtTime(o.endTs):'Started '+fmtTime(o.startTs)}</div></div>
+  </div>`).join('');
 }
 
 // ── OPEN ORDERS ──────────────────────────────────────
-window.renderOpenOrders = function() {
-  const q  = (document.getElementById('openSearch')?.value||'').toLowerCase();
-  const sf = document.getElementById('openShiftF')?.value||'';
-  let list = ORDERS.filter(o=>o.status==='open'||o.status==='backorder');
-  if(q)  list=list.filter(o=>o.orderNum.toLowerCase().includes(q)||o.pickerName.toLowerCase().includes(q));
-  if(sf) list=list.filter(o=>o.shift===sf);
+window.renderOpenOrders=function(){
+  const q=(document.getElementById('openSearch')?.value||'').toLowerCase();
+  const sf=document.getElementById('openShiftF')?.value||'';
+  let list=ORDERS.filter(o=>o.status==='open'||o.status==='backorder');
+  if(q)list=list.filter(o=>o.orderNum.toLowerCase().includes(q)||o.pickerName.toLowerCase().includes(q));
+  if(sf)list=list.filter(o=>o.shift===sf);
   list.sort((a,b)=>b.startTs-a.startTs);
   const body=document.getElementById('openOrdersBody');
-  if(!list.length){body.innerHTML='<tr><td colspan="9" class="text-c text-muted" style="padding:32px">No open orders</td></tr>';return;}
-  body.innerHTML=list.map(o=>{
-    const shortCount=SHORTAGES.filter(s=>s.orderId===o.id).length;
-    return `<tr>
-      <td class="mono bold">${o.orderNum}</td>
-      <td>${divBadge(o.division)}</td>
-      <td>${o.pickerName}</td>
-      <td>${shiftBadge(o.shift)}</td>
-      <td>${o.date}</td>
-      <td>${fmtTime(o.startTs)}</td>
-      <td>${o.lines||'—'}</td>
-      <td>${shortCount>0?`<span class="badge bg-red">${shortCount} items</span>`:'<span class="badge bg-gray">None</span>'}</td>
-      <td>${o.status==='backorder'?'<span class="badge bg-amber">🔄 Back Order</span>':'<span class="badge bg-blue">● Open</span>'}</td>
-    </tr>`;
-  }).join('');
+  if(!list.length){body.innerHTML='<tr><td colspan="9" class="text-c text-muted" style="padding:28px">No open orders</td></tr>';return;}
+  body.innerHTML=list.map(o=>{const sc=SHORTAGES.filter(s=>s.orderId===o.id).length;return`<tr><td class="mono bold">${o.orderNum}</td><td>${divBadge(o.division)}</td><td>${o.pickerName}</td><td>${shiftBadge(o.shift)}</td><td>${o.date}</td><td>${fmtTime(o.startTs)}</td><td>${o.lines||'—'}</td><td>${sc>0?`<span class="badge bg-red">${sc}</span>`:'<span class="badge bg-gray">None</span>'}</td><td>${statusBadgeOrder(o.status)}</td></tr>`;}).join('');
 };
 
 // ── DASHBOARD ────────────────────────────────────────
-window.renderDashboard = function() {
-  const p = document.getElementById('dashPeriod').value;
-  const s = document.getElementById('dashShift').value;
-  let orders = byPeriod(ORDERS,p);
-  if(s!=='all') orders=orders.filter(o=>o.shift===s);
-  const done=orders.filter(o=>o.status==='closed'||o.status==='backorder'||o.status==='backorder_done');
-  const totalLines=done.reduce((a,o)=>a+(o.lines||0),0);
-  let totalMs=0; done.forEach(o=>{if(o.endTs&&o.startTs)totalMs+=(o.endTs-o.startTs);});
-  const phr = totalMs>0&&totalLines>0?(totalLines/(totalMs/3600000)).toFixed(1):'—';
-
+window.renderDashboard=function(){
+  const p=document.getElementById('dashPeriod').value;
+  const s=document.getElementById('dashShift').value;
+  let orders=byPeriod(ORDERS,p);
+  if(s!=='all')orders=orders.filter(o=>o.shift===s);
+  const done=orders.filter(o=>o.status!=='open');
+  // Use pickedLines for KPI (credit minus shortages)
+  const totalLines=done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+  let totalMs=0;done.forEach(o=>{if(o.endTs&&o.startTs)totalMs+=(o.endTs-o.startTs);});
+  const lph=totalMs>0&&totalLines>0?(totalLines/(totalMs/3600000)).toFixed(1):'—';
   document.getElementById('dashStats').innerHTML=`
-    <div class="stat-card c-accent"><div class="stat-label">Orders Picked</div><div class="stat-value">${done.length}</div><div class="stat-sub">${p}</div></div>
-    <div class="stat-card c-green"><div class="stat-label">Total Lines</div><div class="stat-value">${totalLines}</div><div class="stat-sub">across all orders</div></div>
-    <div class="stat-card c-amber"><div class="stat-label">Team Lines/Hr</div><div class="stat-value">${phr}</div><div class="stat-sub">lines ÷ picker-hours</div></div>
+    <div class="stat-card c-accent"><div class="stat-label">Orders Completed</div><div class="stat-value">${done.length}</div><div class="stat-sub">${p}</div></div>
+    <div class="stat-card c-green"><div class="stat-label">Total Lines Picked</div><div class="stat-value">${totalLines}</div><div class="stat-sub">credited lines</div></div>
+    <div class="stat-card c-amber"><div class="stat-label">Team Lines/Hr</div><div class="stat-value">${lph}</div><div class="stat-sub">lines ÷ picker-hours</div></div>
     <div class="stat-card c-red"><div class="stat-label">Open Orders</div><div class="stat-value">${orders.filter(o=>o.status==='open').length}</div><div class="stat-sub">in progress</div></div>
   `;
-
-  const s1lines=orders.filter(o=>o.shift==='1st'&&(o.status!=='open')).reduce((a,o)=>a+(o.lines||0),0);
-  const s2lines=orders.filter(o=>o.shift==='2nd'&&(o.status!=='open')).reduce((a,o)=>a+(o.lines||0),0);
-  const mxS=Math.max(s1lines,s2lines,1);
-  document.getElementById('dashShiftBreak').innerHTML=`
-    <div class="div-bar"><div class="div-bar-head"><div class="div-bar-label">1st Shift</div><div>${s1lines} lines</div></div><div class="div-bar-track"><div class="div-bar-fill" style="width:${(s1lines/mxS)*100}%;background:#1d6ef5"></div></div></div>
-    <div class="div-bar"><div class="div-bar-head"><div class="div-bar-label">2nd Shift</div><div>${s2lines} lines</div></div><div class="div-bar-track"><div class="div-bar-fill" style="width:${(s2lines/mxS)*100}%;background:#7c3aed"></div></div></div>
-  `;
-
-  const dt={};done.forEach(o=>{const k=o.division||'UNK';if(!dt[k])dt[k]=0;dt[k]+=(o.lines||0);});
+  const s1=done.filter(o=>o.shift==='1st').reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+  const s2=done.filter(o=>o.shift==='2nd').reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+  const mxS=Math.max(s1,s2,1);
+  document.getElementById('dashShiftBreak').innerHTML=`<div class="div-bar"><div class="div-bar-head"><div class="div-bar-label">1st Shift</div><div>${s1} lines</div></div><div class="div-bar-track"><div class="div-bar-fill" style="width:${(s1/mxS)*100}%;background:#1d6ef5"></div></div></div><div class="div-bar"><div class="div-bar-head"><div class="div-bar-label">2nd Shift</div><div>${s2} lines</div></div><div class="div-bar-track"><div class="div-bar-fill" style="width:${(s2/mxS)*100}%;background:#7c3aed"></div></div></div>`;
+  const dt={};done.forEach(o=>{const k=o.division||'UNK';dt[k]=(dt[k]||0)+(o.pickedLines||o.lines||0);});
   const mxD=Math.max(...Object.values(dt),1);
-  document.getElementById('dashDivBreak').innerHTML=Object.entries(dt).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`
-    <div class="div-bar"><div class="div-bar-head"><div class="div-bar-label">${DIV[k]?.name||k}</div><div>${v} lines</div></div>
-    <div class="div-bar-track"><div class="div-bar-fill" style="width:${(v/mxD)*100}%;background:${DIV[k]?.color||'#8b93a7'}"></div></div></div>
-  `).join('')||'<div class="text-muted text-sm">No data</div>';
-
+  document.getElementById('dashDivBreak').innerHTML=Object.entries(dt).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="div-bar"><div class="div-bar-head"><div class="div-bar-label">${DIV[k]?.name||k}</div><div>${v}</div></div><div class="div-bar-track"><div class="div-bar-fill" style="width:${(v/mxD)*100}%;background:${DIV[k]?.color||'#8b93a7'}"></div></div></div>`).join('')||'<div class="text-muted text-xs">No data</div>';
   const pm={};
   orders.forEach(o=>{
-    if(!pm[o.pickerName]) pm[o.pickerName]={shift:o.shift,orders:0,lines:0,ms:0,cnt:0,shorts:0};
-    if(o.status!=='open'){
-      pm[o.pickerName].orders++;
-      pm[o.pickerName].lines+=(o.lines||0);
-      if(o.endTs&&o.startTs){pm[o.pickerName].ms+=(o.endTs-o.startTs);pm[o.pickerName].cnt++;}
-    }
+    if(!pm[o.pickerName])pm[o.pickerName]={shift:o.shift,orders:0,lines:0,ms:0,cnt:0,shorts:0};
+    if(o.status!=='open'){pm[o.pickerName].orders++;pm[o.pickerName].lines+=(o.pickedLines||o.lines||0);if(o.endTs&&o.startTs){pm[o.pickerName].ms+=(o.endTs-o.startTs);pm[o.pickerName].cnt++;}}
   });
-  SHORTAGES.forEach(s=>{const o=ORDERS.find(x=>x.id===s.orderId);if(o&&pm[o.pickerName])pm[o.pickerName].shorts++;});
-
+  SHORTAGES.forEach(s=>{const o=ORDERS.find(x=>x.id===s.orderId);if(o&&pm[o.pickerName])pm[o.pickerName].shorts+=s.qty;});
   document.getElementById('dashPickerBody').innerHTML=Object.entries(pm).sort((a,b)=>b[1].lines-a[1].lines).map(([n,d])=>{
-    const avgLines = d.orders>0?(d.lines/d.orders).toFixed(1):'—';
-    const avgT  = d.cnt>0?fmtDur(d.ms/d.cnt):'—';
-    const lph   = d.ms>0?(d.lines/(d.ms/3600000)).toFixed(1):'—';
-    return `<tr><td><strong>${n}</strong></td><td>${shiftBadge(d.shift)}</td><td>${d.orders}</td><td><strong>${d.lines}</strong></td><td>${avgLines}</td><td>${avgT}</td><td><strong>${lph}</strong></td><td>${d.shorts>0?`<span class="badge bg-amber">${d.shorts}</span>`:'—'}</td></tr>`;
-  }).join('')||'<tr><td colspan="8" class="text-c text-muted" style="padding:24px">No data</td></tr>';
+    const avgL=d.orders>0?(d.lines/d.orders).toFixed(1):'—';
+    const avgT=d.cnt>0?fmtDur(d.ms/d.cnt):'—';
+    const lph=d.ms>0?(d.lines/(d.ms/3600000)).toFixed(1):'—';
+    return`<tr><td><strong>${n}</strong></td><td>${shiftBadge(d.shift)}</td><td>${d.orders}</td><td><strong>${d.lines}</strong></td><td>${avgL}</td><td>${avgT}</td><td><strong>${lph}</strong></td><td>${d.shorts>0?`<span class="badge bg-amber">${d.shorts}</span>`:'—'}</td></tr>`;
+  }).join('')||'<tr><td colspan="8" class="text-c text-muted" style="padding:22px">No data</td></tr>';
 };
 
 // ── PICKERS ──────────────────────────────────────────
-function renderPickers() {
+function renderPickers(){
   const active=PICKERS.filter(p=>!p.archived);
   const now=Date.now();
   const el=document.getElementById('pickersGrid');
   if(!active.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">👷</div><div class="empty-title">No pickers yet</div></div>';return;}
   el.innerHTML=active.map(p=>{
     const mine=ORDERS.filter(o=>o.pickerName===p.name&&o.status!=='open');
-    const td  =mine.filter(o=>o.date===todayStr());
-    const tdLines=td.reduce((a,o)=>a+(o.lines||0),0);
-    const totLines=mine.reduce((a,o)=>a+(o.lines||0),0);
-    let ms=0; mine.forEach(o=>{if(o.endTs&&o.startTs)ms+=(o.endTs-o.startTs);});
-    const lph=ms>0&&totLines>0?(totLines/(ms/3600000)).toFixed(1):'—';
+    const td=mine.filter(o=>o.date===todayStr());
+    const tdL=td.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+    const totL=mine.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+    let ms=0;mine.forEach(o=>{if(o.endTs&&o.startTs)ms+=(o.endTs-o.startTs);});
+    const lph=ms>0&&totL>0?(totL/(ms/3600000)).toFixed(1):'—';
     const inact=now-p.lastActiveTs>30*86400000;
-    return `<div class="picker-card">
-      <div class="picker-name">${p.name}</div>
-      <div class="text-sm text-muted">Since ${fmtDate(p.addedTs)}</div>
-      <div class="picker-shift">${shiftBadge(p.shift)}</div>
-      ${inact?'<div class="badge bg-amber" style="margin-top:6px">⚠️ Inactive 30d+</div>':''}
-      <div class="picker-stats">
-        <div><div class="ps-label">Today Lines</div><div class="ps-value">${tdLines}</div></div>
-        <div><div class="ps-label">Total Lines</div><div class="ps-value">${totLines}</div></div>
-        <div><div class="ps-label">Lines/Hr</div><div class="ps-value">${lph}</div></div>
-        <div><div class="ps-label">Today Orders</div><div class="ps-value">${td.length}</div></div>
-        <div><div class="ps-label">Total Orders</div><div class="ps-value">${mine.length}</div></div>
-        <div><div class="ps-label">Last Active</div><div class="ps-value" style="font-size:11px">${fmtDate(p.lastActiveTs)}</div></div>
-      </div>
-    </div>`;
+    return`<div class="picker-card"><div class="picker-name">${p.name}</div><div class="text-xs text-muted">Since ${fmtDate(p.addedTs)}</div><div class="picker-shift">${shiftBadge(p.shift)}</div>${inact?'<div class="badge bg-amber" style="margin-top:5px">⚠️ Inactive 30d+</div>':''}<div class="picker-stats"><div><div class="ps-label">Today Lines</div><div class="ps-value">${tdL}</div></div><div><div class="ps-label">Total Lines</div><div class="ps-value">${totL}</div></div><div><div class="ps-label">Lines/Hr</div><div class="ps-value">${lph}</div></div><div><div class="ps-label">Today Orders</div><div class="ps-value">${td.length}</div></div><div><div class="ps-label">Total Orders</div><div class="ps-value">${mine.length}</div></div><div><div class="ps-label">Last Active</div><div class="ps-value" style="font-size:10px">${fmtDate(p.lastActiveTs)}</div></div></div></div>`;
   }).join('');
 }
 
-window.savePicker = async function() {
+window.savePicker=async function(){
   const name=document.getElementById('newPickerName').value.trim();
   if(!name)return;
-  const btn=document.getElementById('savePickerBtn'); btn.disabled=true;
-  try {
-    if(!PICKERS.find(p=>p.name.toLowerCase()===name.toLowerCase()))
-      await addDoc(collection(db,'pickers'),{name,shift:document.getElementById('newPickerShift').value,addedTs:Date.now(),lastActiveTs:Date.now(),archived:false});
-    closeModal('addPickerModal'); document.getElementById('newPickerName').value='';
-  } finally { btn.disabled=false; }
+  const btn=document.getElementById('savePickerBtn');btn.disabled=true;
+  try{if(!PICKERS.find(p=>p.name.toLowerCase()===name.toLowerCase()))await addDoc(collection(db,'pickers'),{name,shift:document.getElementById('newPickerShift').value,addedTs:Date.now(),lastActiveTs:Date.now(),archived:false});closeModal('addPickerModal');document.getElementById('newPickerName').value='';}
+  finally{btn.disabled=false;}
 };
 
 // ── DIVISIONS ────────────────────────────────────────
-window.renderDivisions = function() {
+window.renderDivisions=function(){
   const done=byPeriod(ORDERS,document.getElementById('divPeriod').value).filter(o=>o.status!=='open');
   document.getElementById('divCards').innerHTML=Object.entries(DIV).map(([code,info])=>{
     const d=done.filter(o=>o.division===code);
-    const lines=d.reduce((a,o)=>a+(o.lines||0),0);
-    return `<div class="card">
-      <div class="card-header" style="border-left:4px solid ${info.color}">
-        <div><div class="card-title">${info.name}</div><div class="text-xs text-muted mono">${code}######</div></div>
-        <div><div class="stat-value" style="color:${info.color}">${lines}</div><div class="text-xs text-muted">lines</div></div>
-      </div>
-      <div class="card-body"><div class="grid-3" style="gap:12px">
-        <div><div class="stat-label">Orders</div><div style="font-size:20px;font-weight:700">${d.length}</div></div>
-        <div><div class="stat-label">1st Shift</div><div style="font-size:20px;font-weight:700">${d.filter(o=>o.shift==='1st').length}</div></div>
-        <div><div class="stat-label">2nd Shift</div><div style="font-size:20px;font-weight:700">${d.filter(o=>o.shift==='2nd').length}</div></div>
-      </div></div>
-    </div>`;
+    const lines=d.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+    return`<div class="card"><div class="card-header" style="border-left:4px solid ${info.color}"><div><div class="card-title">${info.name}</div><div class="text-xs text-muted mono">${code}######</div></div><div><div class="stat-value" style="color:${info.color}">${lines}</div><div class="text-xs text-muted">lines</div></div></div><div class="card-body"><div class="grid-3" style="gap:11px"><div><div class="stat-label">Orders</div><div style="font-size:18px;font-weight:700">${d.length}</div></div><div><div class="stat-label">1st Shift</div><div style="font-size:18px;font-weight:700">${d.filter(o=>o.shift==='1st').length}</div></div><div><div class="stat-label">2nd Shift</div><div style="font-size:18px;font-weight:700">${d.filter(o=>o.shift==='2nd').length}</div></div></div></div></div>`;
   }).join('');
 };
 
 // ── BACK ORDERS ──────────────────────────────────────
-function renderBackorder() {
+function renderBackorder(){
   const list=ORDERS.filter(o=>o.status==='backorder').sort((a,b)=>b.startTs-a.startTs);
   const body=document.getElementById('backorderBody');
-  if(!list.length){body.innerHTML='<tr><td colspan="8" class="text-c text-muted" style="padding:32px">No back orders in queue 🎉</td></tr>';return;}
+  if(!list.length){body.innerHTML='<tr><td colspan="8" class="text-c text-muted" style="padding:28px">No back orders 🎉</td></tr>';return;}
   body.innerHTML=list.map(o=>{
     const shorts=SHORTAGES.filter(s=>s.orderId===o.id);
-    return `<tr>
-      <td><input type="checkbox" id="boc_${o.id}" style="width:18px;height:18px;cursor:pointer"></td>
-      <td class="mono bold">${o.orderNum}</td>
-      <td>${divBadge(o.division)}</td>
-      <td>${o.pickerName}</td>
-      <td>${shiftBadge(o.shift)}</td>
-      <td>${o.date}</td>
-      <td>${shorts.map(s=>`<div class="text-xs"><strong>${s.product}</strong> · ${s.bin} · Qty: ${s.qty}</div>`).join('')||'—'}</td>
-      <td><button class="btn btn-success btn-xs" onclick="completeBackorder('${o.id}')">✓ Complete</button></td>
-    </tr>`;
+    return`<tr><td><input type="checkbox" id="boc_${o.id}" style="width:16px;height:16px;cursor:pointer"></td><td class="mono bold">${o.orderNum}</td><td>${divBadge(o.division)}</td><td>${o.pickerName}</td><td>${shiftBadge(o.shift)}</td><td>${o.date}</td><td>${shorts.map(s=>`<div class="text-xs"><strong>${s.product}</strong> · ${s.bin} · ${s.qty} · <span class="badge ${s.resolution==='located'?'bg-green':s.resolution==='backorder'?'bg-amber':'bg-gray'}">${s.resolution}</span></div>`).join('')||'—'}</td><td><button class="btn btn-success btn-xs" onclick="completeBackorder('${o.id}')">✓ Complete</button></td></tr>`;
   }).join('');
 }
 
-window.completeBackorder = async function(orderId) {
+window.completeBackorder=async function(orderId){
   const chk=document.getElementById('boc_'+orderId);
-  if(!chk||!chk.checked){
-    alert('Please check the checkbox to confirm back-order is fulfilled before completing.');
-    return;
-  }
+  if(!chk||!chk.checked){alert('Please check the checkbox to confirm the back-order is fulfilled.');return;}
   await updateDoc(doc(db,'orders',orderId),{status:'backorder_done',backorderDone:true});
 };
 
 // ── SHORTAGES ────────────────────────────────────────
-window.renderShortages = function() {
-  const p   = document.getElementById('shortPeriod').value;
-  const dv  = document.getElementById('shortDiv').value;
-  const allS = byPeriod(SHORTAGES.map(s=>{
-    const o=ORDERS.find(x=>x.id===s.orderId);
-    return {...s, startTs:o?.startTs||0, date:s.date||o?.date||''};
-  }), p);
-  const filtered = dv ? allS.filter(s=>s.division===dv) : allS;
+let resolvingShortageId=null;
 
-  // Summary cards
-  const totalQty=filtered.reduce((a,s)=>a+s.qty,0);
-  const uniqueOrders=new Set(filtered.map(s=>s.orderId)).size;
+window.renderShortages=function(){
+  const p=document.getElementById('shortPeriod').value;
+  const dv=document.getElementById('shortDivF').value;
+  const sf=document.getElementById('shortStatusF').value;
+  let allS=SHORTAGES.map(s=>({...s,startTs:s.startTs||(ORDERS.find(x=>x.id===s.orderId)?.startTs||0)}));
+  allS=byPeriod(allS,p);
+  if(dv)allS=allS.filter(s=>s.division===dv);
+  if(sf)allS=allS.filter(s=>s.resolution===sf);
+  const pending=allS.filter(s=>s.resolution==='pending').length;
+  const located=allS.filter(s=>s.resolution==='located').length;
+  const bo=allS.filter(s=>s.resolution==='backorder').length;
   document.getElementById('shortSummaryCards').innerHTML=`
-    <div class="stat-card c-red"><div class="stat-label">Total Items Short</div><div class="stat-value">${filtered.length}</div><div class="stat-sub">across ${uniqueOrders} orders</div></div>
-    <div class="stat-card c-amber"><div class="stat-label">Total Qty Short</div><div class="stat-value">${totalQty}</div><div class="stat-sub">units</div></div>
+    <div class="stat-card c-red"><div class="stat-label">Total Items Short</div><div class="stat-value">${allS.length}</div><div class="stat-sub">${new Set(allS.map(s=>s.orderId)).size} orders</div></div>
+    <div class="stat-card c-amber"><div class="stat-label">Pending</div><div class="stat-value">${pending}</div><div class="stat-sub">awaiting resolution</div></div>
+    <div class="stat-card c-green"><div class="stat-label">Located</div><div class="stat-value">${located}</div><div class="stat-sub">found in warehouse</div></div>
+    <div class="stat-card c-purple"><div class="stat-label">Back Ordered</div><div class="stat-value">${bo}</div><div class="stat-sub">ordered from supplier</div></div>
   `;
-
-  // Grouped table: same product + same bin → combine
+  // Grouped
   const grouped={};
-  filtered.forEach(s=>{
-    const key=`${s.product}|${s.bin}`;
-    if(!grouped[key]) grouped[key]={product:s.product,bin:s.bin,totalQty:0,orders:new Set(),division:s.division,lastDate:s.date};
-    grouped[key].totalQty+=s.qty;
-    grouped[key].orders.add(s.orderId);
-    if(s.date>grouped[key].lastDate) grouped[key].lastDate=s.date;
-  });
-
-  document.getElementById('shortGroupBody').innerHTML=Object.values(grouped).sort((a,b)=>b.totalQty-a.totalQty).map(g=>`<tr>
-    <td class="mono bold">${g.product}</td>
-    <td class="mono">${g.bin||'—'}</td>
-    <td><strong style="color:var(--red)">${g.totalQty}</strong></td>
-    <td>${g.orders.size}</td>
-    <td>${divBadge(g.division)}</td>
-    <td>${g.lastDate}</td>
-  </tr>`).join('')||'<tr><td colspan="6" class="text-c text-muted" style="padding:24px">No shortages</td></tr>';
-
-  // Detail table
-  document.getElementById('shortDetailBody').innerHTML=filtered.sort((a,b)=>b.startTs-a.startTs).map(s=>`<tr>
-    <td class="mono">${s.orderNum}</td>
-    <td>${divBadge(s.division)}</td>
-    <td class="mono bold">${s.product}</td>
-    <td class="mono">${s.bin||'—'}</td>
-    <td>${s.qty}</td>
-    <td>${s.date}</td>
-    <td>${s.pickerName}</td>
-  </tr>`).join('')||'<tr><td colspan="7" class="text-c text-muted" style="padding:24px">No shortages</td></tr>';
+  allS.forEach(s=>{const key=`${s.product}|${s.bin}`;if(!grouped[key])grouped[key]={product:s.product,bin:s.bin,totalQty:0,orders:new Set(),division:s.division,lastDate:s.date,resolution:'pending',ids:[]};grouped[key].totalQty+=s.qty;grouped[key].orders.add(s.orderId);grouped[key].ids.push(s.id);if(s.date>grouped[key].lastDate)grouped[key].lastDate=s.date;if(s.resolution!=='pending')grouped[key].resolution=s.resolution;});
+  document.getElementById('shortGroupBody').innerHTML=Object.values(grouped).sort((a,b)=>b.totalQty-a.totalQty).map(g=>{
+    const resBadge=g.resolution==='located'?'<span class="badge bg-green">✅ Located</span>':g.resolution==='backorder'?'<span class="badge bg-amber">📦 Back Ordered</span>':'<span class="badge bg-gray">⏳ Pending</span>';
+    return`<tr><td class="mono bold">${g.product}</td><td class="mono">${g.bin||'—'}</td><td><strong style="color:var(--red)">${g.totalQty}</strong></td><td>${g.orders.size}</td><td>${divBadge(g.division)}</td><td>${resBadge}</td><td><button class="btn btn-ghost btn-xs" onclick="openResolveModal('${g.ids[0]}','${g.product}','${g.bin}',${g.totalQty})">Resolve</button></td></tr>`;
+  }).join('')||'<tr><td colspan="7" class="text-c text-muted" style="padding:22px">No shortages</td></tr>';
+  // Detail
+  document.getElementById('shortDetailBody').innerHTML=allS.sort((a,b)=>b.startTs-a.startTs).map(s=>{
+    const resBadge=s.resolution==='located'?'<span class="badge bg-green">Located</span>':s.resolution==='backorder'?'<span class="badge bg-amber">B/O</span>':'<span class="badge bg-gray">Pending</span>';
+    return`<tr><td class="mono">${s.orderNum}</td><td>${divBadge(s.division)}</td><td class="mono bold">${s.product}</td><td class="mono">${s.bin||'—'}</td><td>${s.qty}</td><td>${s.date}</td><td>${s.pickerName}</td><td>${resBadge}</td><td class="text-xs text-muted">${s.notes||'—'}</td></tr>`;
+  }).join('')||'<tr><td colspan="9" class="text-c text-muted" style="padding:22px">No shortages</td></tr>';
 };
 
-// Populate shortage division filter
-function populateShortDiv() {
-  const sel=document.getElementById('shortDiv');
-  if(!sel)return;
-  sel.innerHTML='<option value="">All Divisions</option>'+Object.entries(DIV).map(([c,d])=>`<option value="${c}">${d.name}</option>`).join('');
+window.openResolveModal=function(shortageId,product,bin,qty){
+  resolvingShortageId=shortageId;
+  document.getElementById('resolveLabel').textContent=`Product: ${product} | Bin: ${bin} | Qty: ${qty}`;
+  document.getElementById('resolveType').value='';
+  document.getElementById('resolveNotes').value='';
+  openModal('resolveModal');
+};
+
+window.submitResolve=async function(){
+  if(!resolvingShortageId)return;
+  const type=document.getElementById('resolveType').value;
+  const notes=document.getElementById('resolveNotes').value.trim();
+  if(!type){alert('Please select a resolution.');return;}
+  // Find all shortages with same product+bin combo and resolve them all
+  const target=SHORTAGES.find(s=>s.id===resolvingShortageId);
+  if(target){
+    const siblings=SHORTAGES.filter(s=>s.product===target.product&&s.bin===target.bin);
+    for(const s of siblings){await updateDoc(doc(db,'shortages',s.id),{resolution:type,notes});}
+  } else {
+    await updateDoc(doc(db,'shortages',resolvingShortageId),{resolution:type,notes});
+  }
+  resolvingShortageId=null;closeModal('resolveModal');
+};
+
+// ── WMS EXPORT ───────────────────────────────────────
+window.initiateWmsExport=function(){
+  // Require IC Manager PIN
+  requirePin('icm','🛡️ IC Manager PIN','Only the IC Manager can generate the WMS export file.',showWmsPreview);
+};
+
+function showWmsPreview(){
+  // Only unresolved (pending) shortages go into the adjustment
+  const pending=SHORTAGES.filter(s=>s.resolution==='pending');
+  if(!pending.length){alert('No pending shortages to export.');return;}
+  const rows=pending.map(s=>[s.product,s.division||'',s.bin||'','','','EA',-s.qty,'GenQtyAdj','Order Shortage Adjustment']);
+  let previewText='Product Code | Location | Bin | Lot | Serial# | UOM | Qty Adj | Adj Code | Remark\n';
+  previewText+='─'.repeat(90)+'\n';
+  rows.forEach(r=>previewText+=r.join(' | ')+'\n');
+  document.getElementById('wmsPreviewWrap').innerHTML=`<div style="font-size:12px;font-weight:600;margin-bottom:5px;color:var(--text2)">${pending.length} items will be exported:</div><div class="wms-preview">${previewText}</div>`;
+  openModal('wmsModal');
 }
 
+window.downloadWmsFile=function(){
+  const pending=SHORTAGES.filter(s=>s.resolution==='pending');
+  if(!pending.length){closeModal('wmsModal');return;}
+  const header=['Product Code','Location Prefix','Bin','Lot','Serial Number','Unit of Measure','Quantity Adjustment','Adjustment Code','Remark'];
+  const rows=pending.map(s=>[s.product,s.division||'',s.bin||'','','','EA',-s.qty,'GenQtyAdj','Order Shortage Adjustment']);
+  const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+  // Column widths
+  ws['!cols']=[{wch:20},{wch:12},{wch:15},{wch:8},{wch:14},{wch:8},{wch:16},{wch:14},{wch:30}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,'Inventory Adjustment',ws);
+  const date=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb,`WMS_Inventory_Adjustment_${date}.xlsx`);
+  closeModal('wmsModal');
+};
+
 // ── OPEN > 24H ───────────────────────────────────────
-function renderOpen24() {
+function renderOpen24(){
   const now=Date.now();
   const list=ORDERS.filter(o=>o.status==='open'&&(now-o.startTs)>86400000);
   const body=document.getElementById('open24Body');
-  if(!list.length){body.innerHTML='<tr><td colspan="8" class="text-c text-muted" style="padding:32px">No orders open longer than 24 hours 🎉</td></tr>';return;}
-  body.innerHTML=list.map(o=>`<tr>
-    <td class="mono">${o.orderNum}</td><td>${divBadge(o.division)}</td><td>${o.pickerName}</td>
-    <td>${shiftBadge(o.shift)}</td><td>${o.date}</td><td>${fmtTime(o.startTs)}</td>
-    <td>${o.lines||'—'}</td><td><strong style="color:var(--red)">${((now-o.startTs)/3600000).toFixed(1)} hrs</strong></td>
-  </tr>`).join('');
+  if(!list.length){body.innerHTML='<tr><td colspan="8" class="text-c text-muted" style="padding:28px">No orders open longer than 24 hours 🎉</td></tr>';return;}
+  body.innerHTML=list.map(o=>`<tr><td class="mono">${o.orderNum}</td><td>${divBadge(o.division)}</td><td>${o.pickerName}</td><td>${shiftBadge(o.shift)}</td><td>${o.date}</td><td>${fmtTime(o.startTs)}</td><td>${o.lines||'—'}</td><td><strong style="color:var(--red)">${((now-o.startTs)/3600000).toFixed(1)} hrs</strong></td></tr>`).join('');
 }
 
 // ── ARCHIVE ──────────────────────────────────────────
 let archPage=0; const PG=50;
-window.renderArchive = function() {
-  // Archive = closed + backorder_done only
+window.renderArchive=function(){
   let list=ORDERS.filter(o=>o.status==='closed'||o.status==='backorder_done');
-  const q  =(document.getElementById('archSearch')?.value||'').toLowerCase();
-  const pk = document.getElementById('archPicker')?.value||'';
-  const dv = document.getElementById('archDiv')?.value||'';
-  const st = document.getElementById('archStatus')?.value||'';
-  const fr = document.getElementById('archFrom')?.value||'';
-  const to = document.getElementById('archTo')?.value||'';
-  if(q)  list=list.filter(o=>o.orderNum.toLowerCase().includes(q)||o.pickerName.toLowerCase().includes(q)||(DIV[o.division]?.name||'').toLowerCase().includes(q));
-  if(pk) list=list.filter(o=>o.pickerName===pk);
-  if(dv) list=list.filter(o=>o.division===dv);
-  if(st) list=list.filter(o=>o.status===st);
-  if(fr) list=list.filter(o=>o.date>=fr);
-  if(to) list=list.filter(o=>o.date<=to);
+  const q=(document.getElementById('archSearch')?.value||'').toLowerCase();
+  const pk=document.getElementById('archPicker')?.value||'';
+  const dv=document.getElementById('archDiv')?.value||'';
+  const fr=document.getElementById('archFrom')?.value||'';
+  const to=document.getElementById('archTo')?.value||'';
+  if(q)list=list.filter(o=>o.orderNum.toLowerCase().includes(q)||o.pickerName.toLowerCase().includes(q)||(DIV[o.division]?.name||'').toLowerCase().includes(q));
+  if(pk)list=list.filter(o=>o.pickerName===pk);
+  if(dv)list=list.filter(o=>o.division===dv);
+  if(fr)list=list.filter(o=>o.date>=fr);
+  if(to)list=list.filter(o=>o.date<=to);
   list.sort((a,b)=>(b.endTs||0)-(a.endTs||0));
   document.getElementById('archCount').textContent=`${list.length} record${list.length!==1?'s':''} found`;
-  const total=Math.ceil(list.length/PG); archPage=Math.min(archPage,Math.max(0,total-1));
+  const total=Math.ceil(list.length/PG);archPage=Math.min(archPage,Math.max(0,total-1));
   document.getElementById('archBody').innerHTML=list.slice(archPage*PG,(archPage+1)*PG).map(o=>{
-    const shorts=SHORTAGES.filter(s=>s.orderId===o.id).length;
-    const statusBadge=o.status==='backorder_done'?'<span class="badge bg-teal">✓ B/O Done</span>':'<span class="badge bg-green">✓ Done</span>';
-    return `<tr>
-      <td class="mono">${o.orderNum}</td><td>${divBadge(o.division)}</td><td>${o.pickerName}</td>
-      <td>${shiftBadge(o.shift)}</td><td>${o.date}</td><td>${fmtTime(o.startTs)}</td><td>${fmtTime(o.endTs)}</td>
-      <td>${o.endTs&&o.startTs?fmtDur(o.endTs-o.startTs):'—'}</td>
-      <td>${o.lines||'—'}</td>
-      <td>${shorts>0?`<span class="badge bg-amber">${shorts}</span>`:'—'}</td>
-      <td>${statusBadge}</td>
-    </tr>`;
-  }).join('')||'<tr><td colspan="11" class="text-c text-muted" style="padding:32px">No records</td></tr>';
+    const sc=SHORTAGES.filter(s=>s.orderId===o.id).length;
+    return`<tr><td class="mono">${o.orderNum}</td><td>${divBadge(o.division)}</td><td>${o.pickerName}</td><td>${shiftBadge(o.shift)}</td><td>${o.date}</td><td>${fmtTime(o.startTs)}</td><td>${fmtTime(o.endTs)}</td><td>${o.endTs&&o.startTs?fmtDur(o.endTs-o.startTs):'—'}</td><td>${o.pickedLines||o.lines||'—'}</td><td>${sc>0?`<span class="badge bg-amber">${sc}</span>`:'—'}</td><td>${statusBadgeOrder(o.status)}</td></tr>`;
+  }).join('')||'<tr><td colspan="11" class="text-c text-muted" style="padding:28px">No records</td></tr>';
   const pag=document.getElementById('archPag');
   if(total<=1){pag.innerHTML='';return;}
-  pag.innerHTML=`<button class="btn btn-ghost btn-sm" onclick="archGo(${archPage-1})" ${archPage===0?'disabled':''}>← Prev</button><span class="text-sm text-muted">Page ${archPage+1} of ${total}</span><button class="btn btn-ghost btn-sm" onclick="archGo(${archPage+1})" ${archPage===total-1?'disabled':''}>Next →</button>`;
+  pag.innerHTML=`<button class="btn btn-ghost btn-sm" onclick="archGo(${archPage-1})" ${archPage===0?'disabled':''}>← Prev</button><span class="text-xs text-muted">Page ${archPage+1} of ${total}</span><button class="btn btn-ghost btn-sm" onclick="archGo(${archPage+1})" ${archPage===total-1?'disabled':''}>Next →</button>`;
 };
-window.archGo = p=>{archPage=p;renderArchive();};
-window.clearArchFilters = ()=>{ ['archSearch','archFrom','archTo'].forEach(id=>document.getElementById(id).value=''); ['archPicker','archDiv','archStatus'].forEach(id=>document.getElementById(id).value=''); renderArchive(); };
+window.archGo=p=>{archPage=p;renderArchive();};
+window.clearArchFilters=()=>{['archSearch','archFrom','archTo'].forEach(id=>document.getElementById(id).value='');['archPicker','archDiv'].forEach(id=>document.getElementById(id).value='');renderArchive();};
+
+// ── LOGIN LOG ────────────────────────────────────────
+function renderLoginLog(){
+  const body=document.getElementById('loginLogBody');
+  if(!LOGIN_LOG.length){body.innerHTML='<tr><td colspan="5" class="text-c text-muted" style="padding:24px">No login records yet</td></tr>';return;}
+  body.innerHTML=LOGIN_LOG.slice(0,200).map(l=>`<tr><td><strong>${l.name}</strong></td><td><span class="badge ${l.role==='manager'?'bg-blue':'bg-gray'}">${l.role}</span></td><td>${l.date}</td><td>${fmtTime(l.ts)}</td><td class="text-xs text-muted">${(l.ua||'').slice(0,60)}</td></tr>`).join('');
+}
 
 // ── ALERTS ───────────────────────────────────────────
 let alertPickerId=null;
-function renderAlerts() {
-  const now=Date.now();
-  const inact=PICKERS.filter(p=>!p.archived&&(now-p.lastActiveTs)>30*86400000);
+function renderAlerts(){
+  const now=Date.now();const inact=PICKERS.filter(p=>!p.archived&&(now-p.lastActiveTs)>30*86400000);
   const el=document.getElementById('alertsList');
-  if(!inact.length){el.innerHTML='<div class="alert alert-green">✅ All pickers have been active within the last 30 days.</div>';return;}
-  el.innerHTML=inact.map(p=>{
-    const days=Math.floor((now-p.lastActiveTs)/86400000);
-    return `<div class="card mb-12"><div class="card-body flex-c j-between gap-12" style="flex-wrap:wrap">
-      <div><div style="font-size:15px;font-weight:700;margin-bottom:3px">${p.name}</div>
-      <div class="text-sm text-muted">Last active: ${fmtDate(p.lastActiveTs)} · <strong style="color:var(--amber)">${days} days ago</strong></div></div>
-      <button class="btn btn-ghost btn-sm" onclick="triggerAlert('${p.id}','${p.name}',${days})">Review</button>
-    </div></div>`;
-  }).join('');
+  if(!inact.length){el.innerHTML='<div class="alert alert-green">✅ All pickers active within 30 days.</div>';return;}
+  el.innerHTML=inact.map(p=>{const days=Math.floor((now-p.lastActiveTs)/86400000);return`<div class="card mb-10"><div class="card-body flex-c j-between gap-10" style="flex-wrap:wrap"><div><div style="font-size:14px;font-weight:700;margin-bottom:2px">${p.name}</div><div class="text-xs text-muted">Last: ${fmtDate(p.lastActiveTs)} · <strong style="color:var(--amber)">${days} days ago</strong></div></div><button class="btn btn-ghost btn-sm" onclick="triggerAlert('${p.id}','${p.name}',${days})">Review</button></div></div>`;}).join('');
 }
-window.triggerAlert = (id,name,days)=>{ alertPickerId=id; document.getElementById('inactiveText').textContent=`${name} has not had any recorded activity in ${days} days.`; openModal('inactiveModal'); };
-window.doArchivePicker  = async ()=>{ if(!alertPickerId)return; await updateDoc(doc(db,'pickers',alertPickerId),{archived:true}); closeModal('inactiveModal'); };
-window.doConfirmActive  = async ()=>{ if(!alertPickerId)return; await updateDoc(doc(db,'pickers',alertPickerId),{lastActiveTs:Date.now()}); closeModal('inactiveModal'); };
+window.triggerAlert=(id,name,days)=>{alertPickerId=id;document.getElementById('inactiveText').textContent=`${name} has not had any activity in ${days} days.`;openModal('inactiveModal');};
+window.doArchivePicker=async()=>{if(!alertPickerId)return;await updateDoc(doc(db,'pickers',alertPickerId),{archived:true});closeModal('inactiveModal');};
+window.doConfirmActive=async()=>{if(!alertPickerId)return;await updateDoc(doc(db,'pickers',alertPickerId),{lastActiveTs:Date.now()});closeModal('inactiveModal');};
 
 // ── BADGES ───────────────────────────────────────────
-function updateBadges() {
+function updateBadges(){
   const now=Date.now();
-  const setB=(id,n)=>{ const b=document.getElementById(id); if(!b)return; if(n>0){b.textContent=n;b.style.display='inline-flex';}else b.style.display='none'; };
-  setB('bOpen', ORDERS.filter(o=>o.status==='open').length);
-  setB('b24',   ORDERS.filter(o=>o.status==='open'&&(now-o.startTs)>86400000).length);
-  setB('bBackorder', ORDERS.filter(o=>o.status==='backorder').length);
-  setB('bShortages', SHORTAGES.length);
-  setB('bAlerts', PICKERS.filter(p=>!p.archived&&(now-p.lastActiveTs)>30*86400000).length);
+  const setB=(id,n)=>{const b=document.getElementById(id);if(!b)return;if(n>0){b.textContent=n;b.style.display='inline-flex';}else b.style.display='none';};
+  setB('bOpen',ORDERS.filter(o=>o.status==='open').length);
+  setB('b24',ORDERS.filter(o=>o.status==='open'&&(now-o.startTs)>86400000).length);
+  setB('bBO',ORDERS.filter(o=>o.status==='backorder').length);
+  setB('bShort',SHORTAGES.filter(s=>s.resolution==='pending').length);
+  setB('bAl',PICKERS.filter(p=>!p.archived&&(now-p.lastActiveTs)>30*86400000).length);
 }
 
 // ── DATALIST ─────────────────────────────────────────
-function refreshDatalist() {
-  document.getElementById('pickerList').innerHTML=PICKERS.filter(p=>!p.archived).map(p=>`<option value="${p.name}">`).join('');
+function refreshDatalist(){document.getElementById('pickerList').innerHTML=PICKERS.filter(p=>!p.archived).map(p=>`<option value="${p.name}">`).join('');}
+function populateArchPickers(){const sel=document.getElementById('archPicker');if(!sel)return;const cur=sel.value;sel.innerHTML='<option value="">All Pickers</option>'+PICKERS.map(p=>`<option value="${p.name}"${p.name===cur?' selected':''}>${p.name}</option>`).join('');}
+
+// ── SETTINGS UI ──────────────────────────────────────
+function renderSettingsUsers(){
+  const users=getUsers();
+  document.getElementById('userListSettings').innerHTML=users.map((u,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)"><div><strong>${u.name}</strong> <span class="badge ${u.role==='manager'?'bg-blue':'bg-gray'}">${u.role}</span></div><button class="btn btn-ghost btn-xs" onclick="removeUser(${i})">Remove</button></div>`).join('');
+  const sel=document.getElementById('changePinUser');
+  sel.innerHTML='<option value="__login__">Login PIN (all users)</option><option value="__icm__">IC Manager PIN</option><option value="__reset__">Master Reset PIN</option>';
 }
-function populateArchPickers() {
-  const sel=document.getElementById('archPicker'); if(!sel)return;
-  const cur=sel.value;
-  sel.innerHTML='<option value="">All Pickers</option>'+PICKERS.map(p=>`<option value="${p.name}"${p.name===cur?' selected':''}>${p.name}</option>`).join('');
-}
+
+window.addUser=function(){
+  const name=document.getElementById('newUserName').value.trim();
+  const role=document.getElementById('newUserRole').value;
+  if(!name)return;
+  const users=getUsers();
+  if(!users.find(u=>u.name.toLowerCase()===name.toLowerCase())){
+    users.push({name,role,initials:name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)});
+    saveUsers(users);buildLoginScreen();renderSettingsUsers();
+  }
+  document.getElementById('newUserName').value='';
+};
+
+window.removeUser=function(idx){
+  const users=getUsers();users.splice(idx,1);saveUsers(users);buildLoginScreen();renderSettingsUsers();
+};
 
 // ── DARK MODE ────────────────────────────────────────
-window.toggleDark = function() {
+window.toggleDark=function(){
   const dark=document.getElementById('darkToggle').checked;
-  document.documentElement.setAttribute('data-theme', dark?'dark':'light');
-  localStorage.setItem('wpt_theme', dark?'dark':'light');
+  document.documentElement.setAttribute('data-theme',dark?'dark':'light');
+  localStorage.setItem('wpt_theme',dark?'dark':'light');
 };
-function applyTheme() {
+function applyTheme(){
   const t=localStorage.getItem('wpt_theme')||'light';
   document.documentElement.setAttribute('data-theme',t);
-  const tog=document.getElementById('darkToggle');
-  if(tog) tog.checked=(t==='dark');
+  const tog=document.getElementById('darkToggle');if(tog)tog.checked=(t==='dark');
 }
-
-// ── PIN SYSTEM ───────────────────────────────────────
-window.pinKey = function(k) {
-  if(k==='⌫') { pinEntry=pinEntry.slice(0,-1); }
-  else if(pinEntry.length<4) { pinEntry+=k; }
-  // Update dots
-  for(let i=0;i<4;i++) document.getElementById('pd'+i).classList.toggle('filled',i<pinEntry.length);
-  document.getElementById('pinError').textContent='';
-  if(pinEntry.length===4) {
-    setTimeout(()=>{
-      if(pinEntry===adminPin) {
-        pinEntry=''; closeModal('pinModal');
-        for(let i=0;i<4;i++) document.getElementById('pd'+i).classList.remove('filled');
-        if(pinCallback) { pinCallback(); pinCallback=null; }
-      } else {
-        document.getElementById('pinError').textContent='Incorrect PIN. Try again.';
-        pinEntry='';
-        for(let i=0;i<4;i++) document.getElementById('pd'+i).classList.remove('filled');
-      }
-    },150);
-  }
-};
-
-function requirePin(callback) {
-  pinEntry=''; pinCallback=callback;
-  for(let i=0;i<4;i++) document.getElementById('pd'+i).classList.remove('filled');
-  document.getElementById('pinError').textContent='';
-  openModal('pinModal');
-}
-
-window.savePin = function() {
-  const p=document.getElementById('newPin').value.trim();
-  if(!/^\d{4}$/.test(p)){alert('PIN must be exactly 4 digits.');return;}
-  adminPin=p; localStorage.setItem('wpt_pin',p);
-  document.getElementById('newPin').value='';
-  alert('PIN updated successfully.');
-};
 
 // ── CLEAR DATA ───────────────────────────────────────
-window.initiateClearData = function() {
-  requirePin(async ()=>{
-    const confirmed=confirm('⚠️ ARE YOU SURE?\n\nThis will permanently delete ALL order and shortage data.\n\nType OK to confirm.');
-    if(confirmed) await clearAllData();
+window.initiateClearData=function(){
+  requirePin('reset','🗑️ Master Reset PIN','Enter the Master Reset PIN to clear all data.',async()=>{
+    if(!confirm('⚠️ FINAL WARNING\n\nThis will permanently delete ALL orders and shortage data.\n\nPress OK to proceed.'))return;
+    const oS=await getDocs(collection(db,'orders'));const sS=await getDocs(collection(db,'shortages'));
+    const batch=writeBatch(db);
+    oS.docs.forEach(d=>batch.delete(d.ref));sS.docs.forEach(d=>batch.delete(d.ref));
+    await batch.commit();alert('All data cleared.');
   });
 };
 
-async function clearAllData() {
-  // Delete all orders
-  const oSnap=await getDocs(collection(db,'orders'));
-  const sSnap=await getDocs(collection(db,'shortages'));
-  const batch=writeBatch(db);
-  oSnap.docs.forEach(d=>batch.delete(d.ref));
-  sSnap.docs.forEach(d=>batch.delete(d.ref));
-  await batch.commit();
-  alert('All order data has been cleared.');
-}
-
-// ── PRINT / KPI REPORT ───────────────────────────────
-window.showPrintPage = function() {
-  const p = document.getElementById('dashPeriod')?.value||'today';
-  const s = document.getElementById('dashShift')?.value||'all';
-  let orders = byPeriod(ORDERS,p);
-  if(s!=='all') orders=orders.filter(o=>o.shift===s);
+// ── PRINT / KPI ──────────────────────────────────────
+window.showPrintPage=function(){
+  const p=document.getElementById('dashPeriod')?.value||'today';
+  const s=document.getElementById('dashShift')?.value||'all';
+  let orders=byPeriod(ORDERS,p);if(s!=='all')orders=orders.filter(o=>o.shift===s);
   const done=orders.filter(o=>o.status!=='open');
-
-  // Build per-picker data
   const pm={};
-  orders.forEach(o=>{
-    if(!pm[o.pickerName]) pm[o.pickerName]={shift:o.shift,orders:0,lines:0,ms:0,cnt:0};
-    if(o.status!=='open'){
-      pm[o.pickerName].orders++;
-      pm[o.pickerName].lines+=(o.lines||0);
-      if(o.endTs&&o.startTs){pm[o.pickerName].ms+=(o.endTs-o.startTs);pm[o.pickerName].cnt++;}
-    }
-  });
-
+  orders.forEach(o=>{if(!pm[o.pickerName])pm[o.pickerName]={shift:o.shift,orders:0,lines:0,ms:0,cnt:0};if(o.status!=='open'){pm[o.pickerName].orders++;pm[o.pickerName].lines+=(o.pickedLines||o.lines||0);if(o.endTs&&o.startTs){pm[o.pickerName].ms+=(o.endTs-o.startTs);pm[o.pickerName].cnt++;}}});
   const names=Object.keys(pm);
-  const lphData=names.map(n=>pm[n].ms>0?(pm[n].lines/(pm[n].ms/3600000)).toFixed(1):0);
-  const linesData=names.map(n=>pm[n].lines);
-
-  const totalLines=done.reduce((a,o)=>a+(o.lines||0),0);
-  let totalMs=0; done.forEach(o=>{if(o.endTs&&o.startTs)totalMs+=(o.endTs-o.startTs);});
+  const totalLines=done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+  let totalMs=0;done.forEach(o=>{if(o.endTs&&o.startTs)totalMs+=(o.endTs-o.startTs);});
   const teamLph=totalMs>0&&totalLines>0?(totalLines/(totalMs/3600000)).toFixed(1):'—';
-
   document.getElementById('printContent').innerHTML=`
-    <div style="font-family:'IBM Plex Sans',sans-serif;color:#1a1d23;max-width:900px;margin:0 auto">
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:24px;border-bottom:2px solid #1d6ef5;padding-bottom:12px">
-        <div>
-          <div style="font-size:22px;font-weight:700;letter-spacing:-.5px">📦 Warehouse KPI Report</div>
-          <div style="font-size:13px;color:#5a6072;margin-top:2px">Built by Ruben Mendoza · IC Manager</div>
-        </div>
-        <div style="text-align:right;font-size:13px;color:#5a6072">
-          <div>Period: <strong>${p}</strong></div>
-          <div>Shift: <strong>${s}</strong></div>
-          <div>Generated: <strong>${new Date().toLocaleDateString()}</strong></div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">
-        ${[['Orders Completed',done.length,'#1d6ef5'],['Total Lines Picked',totalLines,'#16a34a'],['Team Lines/Hr',teamLph,'#d97706'],['Pickers Active',names.length,'#7c3aed']].map(([l,v,c])=>`
-          <div style="border:1px solid #e2e5eb;border-radius:8px;padding:14px;border-left:3px solid ${c}">
-            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8b93a7;margin-bottom:6px">${l}</div>
-            <div style="font-size:26px;font-weight:700;color:${c};letter-spacing:-1px">${v}</div>
-          </div>`).join('')}
-      </div>
-      <div style="margin-bottom:24px;border:1px solid #e2e5eb;border-radius:8px;overflow:hidden">
-        <div style="background:#f7f8fa;padding:12px 16px;font-weight:600;font-size:13px;border-bottom:1px solid #e2e5eb">Picker Performance</div>
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <thead><tr style="background:#f7f8fa">
-            <th style="padding:9px 13px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8b93a7">Picker</th>
-            <th style="padding:9px 13px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8b93a7">Shift</th>
-            <th style="padding:9px 13px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8b93a7">Orders</th>
-            <th style="padding:9px 13px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8b93a7">Total Lines</th>
-            <th style="padding:9px 13px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8b93a7">Lines/Hr</th>
-          </tr></thead>
-          <tbody>
-            ${names.sort((a,b)=>pm[b].lines-pm[a].lines).map((n,i)=>{
-              const d=pm[n];
-              const lph=d.ms>0?(d.lines/(d.ms/3600000)).toFixed(1):'—';
-              return `<tr style="border-top:1px solid #e2e5eb;background:${i%2===0?'#fff':'#f7f8fa'}">
-                <td style="padding:9px 13px;font-weight:600">${n}</td>
-                <td style="padding:9px 13px">${d.shift}</td>
-                <td style="padding:9px 13px;text-align:right">${d.orders}</td>
-                <td style="padding:9px 13px;text-align:right;font-weight:700">${d.lines}</td>
-                <td style="padding:9px 13px;text-align:right;font-weight:700;color:#16a34a">${lph}</td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-      <canvas id="printChart1" width="860" height="300" style="margin-bottom:20px;border:1px solid #e2e5eb;border-radius:8px;padding:16px"></canvas>
-      <canvas id="printChart2" width="860" height="300" style="border:1px solid #e2e5eb;border-radius:8px;padding:16px"></canvas>
-      <div style="margin-top:20px;font-size:11px;color:#8b93a7;text-align:center">Warehouse Pick Tracker · Built by Ruben Mendoza, IC Manager · ${new Date().toLocaleString()}</div>
+  <div style="font-family:'IBM Plex Sans',sans-serif;color:#1a1d23;max-width:900px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;border-bottom:3px solid #1d6ef5;padding-bottom:10px">
+      <div><div style="font-size:20px;font-weight:700;letter-spacing:-.5px">📦 Warehouse KPI Report</div><div style="font-size:11px;color:#5a6072;margin-top:2px">Built by Ruben Mendoza · IC Manager</div></div>
+      <div style="text-align:right;font-size:12px;color:#5a6072"><div>Period: <strong>${p}</strong> · Shift: <strong>${s}</strong></div><div>Generated: <strong>${new Date().toLocaleString()}</strong></div></div>
     </div>
-  `;
-
-  // Draw charts after DOM update
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+      ${[['Orders Completed',done.length,'#1d6ef5'],['Total Lines Picked',totalLines,'#16a34a'],['Team Lines/Hr',teamLph,'#d97706'],['Active Pickers',names.length,'#7c3aed']].map(([l,v,c])=>`<div style="border:1px solid #e2e5eb;border-radius:8px;padding:12px;border-left:3px solid ${c}"><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8b93a7;margin-bottom:4px">${l}</div><div style="font-size:22px;font-weight:700;color:${c};letter-spacing:-1px">${v}</div></div>`).join('')}
+    </div>
+    <div style="margin-bottom:20px;border:1px solid #e2e5eb;border-radius:8px;overflow:hidden">
+      <div style="background:#f7f8fa;padding:10px 14px;font-weight:600;font-size:12px;border-bottom:1px solid #e2e5eb">Picker Performance</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#f7f8fa">
+        <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b93a7">Picker</th>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b93a7">Shift</th>
+        <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b93a7">Orders</th>
+        <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b93a7">Lines Picked</th>
+        <th style="padding:8px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b93a7">Lines/Hr</th>
+      </tr></thead><tbody>
+        ${names.sort((a,b)=>pm[b].lines-pm[a].lines).map((n,i)=>{const d=pm[n];const lph=d.ms>0?(d.lines/(d.ms/3600000)).toFixed(1):'—';return`<tr style="border-top:1px solid #e2e5eb;background:${i%2===0?'#fff':'#f7f8fa'}"><td style="padding:8px 12px;font-weight:600">${n}</td><td style="padding:8px 12px">${d.shift}</td><td style="padding:8px 12px;text-align:right">${d.orders}</td><td style="padding:8px 12px;text-align:right;font-weight:700">${d.lines}</td><td style="padding:8px 12px;text-align:right;font-weight:700;color:#16a34a">${lph}</td></tr>`;}).join('')}
+      </tbody></table>
+    </div>
+    <canvas id="pc1" width="860" height="280" style="margin-bottom:16px;border:1px solid #e2e5eb;border-radius:8px;padding:14px"></canvas>
+    <canvas id="pc2" width="860" height="280" style="border:1px solid #e2e5eb;border-radius:8px;padding:14px"></canvas>
+    <div style="margin-top:16px;font-size:10px;color:#8b93a7;text-align:center">Warehouse Pick Tracker · Built by Ruben Mendoza, IC Manager · ${new Date().toLocaleString()}</div>
+  </div>`;
   setTimeout(()=>{
-    const ctx1=document.getElementById('printChart1')?.getContext('2d');
-    if(ctx1&&names.length) new Chart(ctx1,{type:'bar',data:{labels:names,datasets:[{label:'Total Lines Picked',data:linesData,backgroundColor:'rgba(29,110,245,.7)',borderColor:'#1d6ef5',borderWidth:2,borderRadius:4}]},options:{responsive:false,plugins:{legend:{position:'top'},title:{display:true,text:'Total Lines Per Picker'}},scales:{y:{beginAtZero:true}}}});
-    const ctx2=document.getElementById('printChart2')?.getContext('2d');
-    if(ctx2&&names.length) new Chart(ctx2,{type:'bar',data:{labels:names,datasets:[{label:'Lines Per Hour',data:lphData,backgroundColor:'rgba(22,163,74,.7)',borderColor:'#16a34a',borderWidth:2,borderRadius:4}]},options:{responsive:false,plugins:{legend:{position:'top'},title:{display:true,text:'Lines Per Hour Per Picker'}},scales:{y:{beginAtZero:true}}}});
-  },100);
+    const lphD=names.map(n=>pm[n].ms>0?(pm[n].lines/(pm[n].ms/3600000)).toFixed(1):0);
+    const lD=names.map(n=>pm[n].lines);
+    const c1=document.getElementById('pc1')?.getContext('2d');
+    if(c1&&names.length)new Chart(c1,{type:'bar',data:{labels:names,datasets:[{label:'Total Lines Picked',data:lD,backgroundColor:'rgba(29,110,245,.7)',borderColor:'#1d6ef5',borderWidth:2,borderRadius:4}]},options:{responsive:false,plugins:{legend:{position:'top'},title:{display:true,text:'Total Lines Per Picker'}},scales:{y:{beginAtZero:true}}}});
+    const c2=document.getElementById('pc2')?.getContext('2d');
+    if(c2&&names.length)new Chart(c2,{type:'bar',data:{labels:names,datasets:[{label:'Lines Per Hour',data:lphD,backgroundColor:'rgba(22,163,74,.7)',borderColor:'#16a34a',borderWidth:2,borderRadius:4}]},options:{responsive:false,plugins:{legend:{position:'top'},title:{display:true,text:'Lines Per Hour Per Picker'}},scales:{y:{beginAtZero:true}}}});
+  },150);
 };
 
 // ── NAVIGATION ───────────────────────────────────────
-window.showPage = function(id, tab) {
+window.showPage=function(id,tab){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+id)?.classList.add('active');
-  if(tab&&tab.classList) tab.classList.add('active');
-  if(id==='dashboard')   renderDashboard();
-  if(id==='open-orders') renderOpenOrders();
-  if(id==='pickers')     renderPickers();
-  if(id==='divisions')   renderDivisions();
-  if(id==='backorder')   renderBackorder();
-  if(id==='shortages')   { populateShortDiv(); renderShortages(); }
-  if(id==='open24')      renderOpen24();
-  if(id==='archive')     renderArchive();
-  if(id==='alerts')      renderAlerts();
-  if(id==='print')       showPrintPage();
+  if(tab&&tab.classList)tab.classList.add('active');
+  if(id==='dashboard')renderDashboard();if(id==='open-orders')renderOpenOrders();
+  if(id==='pickers')renderPickers();if(id==='divisions')renderDivisions();
+  if(id==='backorder')renderBackorder();if(id==='shortages'){populateShortDivFilter();renderShortages();}
+  if(id==='open24')renderOpen24();if(id==='archive')renderArchive();
+  if(id==='alerts')renderAlerts();if(id==='logins')renderLoginLog();
+  if(id==='print')showPrintPage();if(id==='settings')renderSettingsUsers();
 };
 
+function populateShortDivFilter(){const sel=document.getElementById('shortDivF');if(!sel||sel.children.length>1)return;Object.entries(DIV).forEach(([c,d])=>{const o=document.createElement('option');o.value=c;o.textContent=d.name;sel.appendChild(o);});}
+
 // ── MODALS ───────────────────────────────────────────
-window.openModal  = id=>document.getElementById(id).classList.add('open');
-window.closeModal = id=>document.getElementById(id).classList.remove('open');
+window.openModal=id=>document.getElementById(id).classList.add('open');
+window.closeModal=id=>document.getElementById(id).classList.remove('open');
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 
 // ── KEYBOARD ─────────────────────────────────────────
-document.getElementById('scanOrder').addEventListener('keydown', e=>{
-  if(e.key!=='Enter')return;
-  const l=document.getElementById('scanLines').value.trim();
-  if(!l){document.getElementById('scanLines').focus();return;}
-  const pk=document.getElementById('scanPicker').value.trim();
-  if(pk) processOrder(); else document.getElementById('scanPicker').focus();
-});
-document.getElementById('scanLines').addEventListener('keydown', e=>{
-  if(e.key==='Enter') document.getElementById('scanPicker').focus();
-});
-document.getElementById('scanPicker').addEventListener('keydown', e=>{ if(e.key==='Enter') processOrder(); });
+document.getElementById('scanOrder').addEventListener('keydown',e=>{if(e.key!=='Enter')return;const l=document.getElementById('scanLines').value.trim();if(!l){document.getElementById('scanLines').focus();return;}const pk=document.getElementById('scanPicker').value.trim();if(pk)processOrder();else document.getElementById('scanPicker').focus();});
+document.getElementById('scanLines').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('scanPicker').focus();});
+document.getElementById('scanPicker').addEventListener('keydown',e=>{if(e.key==='Enter')processOrder();});
 
-// ── CLOCK ────────────────────────────────────────────
-const tick=()=>document.getElementById('liveTime').textContent=
-  new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+
-  '  '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-setInterval(tick,1000); tick();
+// ── CLOCK ─────────────────────────────────────────────
+const tick=()=>document.getElementById('liveTime').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+'  '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+setInterval(tick,1000);tick();
 
 // ── BOOT ─────────────────────────────────────────────
-async function boot() {
+async function boot(){
   applyTheme();
-  populateShortDiv();
-  try {
+  buildLoginScreen();
+  // Build numpad for pin prompt modal (re-bind when opened)
+  document.getElementById('loadingOverlay').style.display='flex';
+  try{
     await getDocs(collection(db,'pickers'));
     document.getElementById('connStatus').innerHTML='<span class="conn-dot"></span>Connected';
     startListeners();
     document.getElementById('loadingOverlay').style.display='none';
-  } catch(e) {
-    document.getElementById('loadingOverlay').innerHTML=
-      `<div style="color:var(--red);font-size:15px;font-weight:600">⚠️ Firebase connection failed</div>
-       <div style="color:var(--text2);font-size:13px;max-width:320px;text-align:center;margin-top:8px">${e.message}</div>`;
+  }catch(e){
+    document.getElementById('loadingOverlay').innerHTML=`<div style="color:var(--red);font-size:14px;font-weight:600">⚠️ Firebase failed</div><div style="font-size:12px;max-width:300px;text-align:center;margin-top:8px;color:var(--text2)">${e.message}</div>`;
   }
 }
 boot();
