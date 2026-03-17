@@ -356,12 +356,31 @@ tbody td{padding:8px 11px;font-size:12px}
 <!-- BACK ORDERS -->
 <div class="page" id="page-backorder">
   <div class="alert alert-amber">🔄 Orders with shortages awaiting fulfillment. Check the box, select an outcome, then click Complete.</div>
+
+  <!-- Single-line priority section -->
+  <div id="boSingleLineSection" style="display:none;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:8px;background:var(--red-light);border:2px solid var(--red);border-radius:var(--radius);padding:10px 14px;margin-bottom:8px">
+      <span style="font-size:18px">🚨</span>
+      <div>
+        <div style="font-weight:700;color:var(--red);font-size:13px">Single-Line Back Orders — Division Notification Required</div>
+        <div class="text-xs" style="color:var(--red);opacity:.8;margin-top:1px">These orders had only 1 line — the entire order is shorted. OPS must inform the division.</div>
+      </div>
+      <span id="boSingleCount" class="badge bg-red" style="margin-left:auto;font-size:12px"></span>
+    </div>
+    <div class="card">
+      <div class="card-body" style="padding:0"><div class="table-wrap"><table>
+        <thead><tr><th>✓</th><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Product Shorted</th><th>Outcome</th><th>Action</th></tr></thead>
+        <tbody id="boSingleBody"></tbody>
+      </table></div></div>
+    </div>
+  </div>
+
   <div class="flex-c gap-8 mb-12" style="flex-wrap:wrap">
     <input type="text" id="boSearch" placeholder="🔍 Search order #, picker…" oninput="renderBackorder()" style="width:220px">
     <select id="boShiftF" onchange="renderBackorder()" class="w-auto"><option value="">All Shifts</option><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select>
     <select id="boDivF" onchange="renderBackorder()" class="w-auto" style="min-width:120px"><option value="">All Divisions</option><option value="GT">TAG</option><option value="NH">NAPA</option><option value="FS">Forside</option><option value="EE">Ever Ellis</option><option value="BC">Beachcombers</option><option value="VP">VIP</option><option value="TP">Transpac</option></select>
   </div>
-  <div class="card"><div class="card-header"><div class="card-title">Back Order Queue</div></div>
+  <div class="card"><div class="card-header"><div class="card-title">Multi-Line Back Orders</div></div>
     <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead id="backorderHead"><tr></tr></thead><tbody id="backorderBody"></tbody></table></div></div>
   </div>
 </div>
@@ -379,6 +398,24 @@ tbody td{padding:8px 11px;font-size:12px}
     </div>
   </div>
   <div class="grid-4 mb-12" id="shortSummaryCards"></div>
+
+  <!-- Single-line orders priority section -->
+  <div id="shortSingleSection" style="display:none;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:8px;background:var(--red-light);border:2px solid var(--red);border-radius:var(--radius);padding:10px 14px;margin-bottom:8px">
+      <span style="font-size:18px">🚨</span>
+      <div>
+        <div style="font-weight:700;color:var(--red);font-size:13px">Single-Line Orders — Complete Back Orders</div>
+        <div class="text-xs" style="color:var(--red);opacity:.8;margin-top:1px">Entire order is shorted. Look for these items first — OPS must notify the division if not found.</div>
+      </div>
+      <span id="shortSingleCount" class="badge bg-red" style="margin-left:auto;font-size:12px"></span>
+    </div>
+    <div class="card">
+      <div class="card-body" style="padding:0"><div class="table-wrap"><table>
+        <thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Product #</th><th>Bin</th><th>Qty Short</th><th>Status</th><th>IC Notes</th></tr></thead>
+        <tbody id="shortSingleBody"></tbody>
+      </table></div></div>
+    </div>
+  </div>
   <div class="card mb-12">
     <div class="card-header"><div class="card-title">Grouped by Product &amp; Bin</div><div class="text-xs text-muted">Same product # + bin are combined</div></div>
     <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead id="shortGroupHead"><tr></tr></thead><tbody id="shortGroupBody"></tbody></table></div></div>
@@ -1720,47 +1757,69 @@ window.renderDivisions=function(){
 };
 
 // ── BACK ORDERS ──────────────────────────────────────
+function boOrderRow(o){
+  const shorts=SHORTAGES.filter(s=>s.orderId===o.id);
+  return`<tr>
+    <td><input type="checkbox" id="boc_${o.id}" style="width:16px;height:16px;cursor:pointer"></td>
+    <td class="mono bold">${o.orderNum}</td>
+    <td>${divBadge(o.division)}</td>
+    <td>${o.pickerName}</td>
+    <td>${shiftBadge(o.shift)}</td>
+    <td>${o.date}</td>
+    <td>${shorts.map(s=>{
+      const sc=s.resolution==='located'?'bg-green':s.resolution==='partial'?'bg-orange':s.resolution==='backorder'?'bg-amber':'bg-gray';
+      const sl=s.resolution==='partial'?`partial (${s.qtyLocated!=null?s.qtyLocated:'?'}/${s.qty})`:s.resolution;
+      return`<div class="text-xs"><strong>${s.product}</strong> · ${s.bin||'—'} · Qty: ${s.qty} · <span class="badge ${sc}">${sl}</span></div>`;
+    }).join('')||'—'}</td>
+    <td>
+      <select id="boRes_${o.id}" style="font-size:11px;padding:4px 7px;width:auto;min-width:200px">
+        <option value="">— Select outcome —</option>
+        <option value="located">✅ Ship Complete — All items located</option>
+        <option value="partial_located">⚡ Ship Partial — Some items located</option>
+        <option value="ship_incomplete">⚠️ Ship Incomplete — Research Later</option>
+      </select>
+    </td>
+    <td><button class="btn btn-success btn-xs" onclick="completeBackorder('${o.id}')">✓ Complete</button></td>
+  </tr>`;
+}
+
 function renderBackorder(){
   const {col,dir}=SORT.backorder;
   const q=(document.getElementById('boSearch')?.value||'').toLowerCase();
   const sf=document.getElementById('boShiftF')?.value||'';
   const dv=document.getElementById('boDivF')?.value||'';
-  let list=ORDERS.filter(o=>o.status==='backorder');
+  let all=ORDERS.filter(o=>o.status==='backorder');
+
+  // Split into single-line (complete back orders) and multi-line
+  const singleLine=all.filter(o=>(o.lines||0)<=1);
+  const multiLine=all.filter(o=>(o.lines||0)>1);
+
+  // Single-line priority section (no search/shift/div filter — always show all)
+  const slSec=document.getElementById('boSingleLineSection');
+  const slBody=document.getElementById('boSingleBody');
+  const slCount=document.getElementById('boSingleCount');
+  if(singleLine.length){
+    if(slSec)slSec.style.display='block';
+    if(slCount)slCount.textContent=`${singleLine.length} order${singleLine.length!==1?'s':''}`;
+    if(slBody)slBody.innerHTML=singleLine.sort((a,b)=>b.startTs-a.startTs).map(boOrderRow).join('');
+  } else {
+    if(slSec)slSec.style.display='none';
+  }
+
+  // Multi-line section with filters
+  let list=multiLine;
   if(q)list=list.filter(o=>o.orderNum.toLowerCase().includes(q)||o.pickerName.toLowerCase().includes(q));
   if(sf)list=list.filter(o=>o.shift===sf);
   if(dv)list=list.filter(o=>o.division===dv);
   list=list.map(o=>({...o,_sc:SHORTAGES.filter(s=>s.orderId===o.id).length}));
   list=sortData(list,col,dir);
+
   const body=document.getElementById('backorderBody');
   const th=(c,l)=>thSort('backorder',c,l,col,dir);
   const head=document.getElementById('backorderHead');
   if(head)head.innerHTML=`<tr><th>✓</th>${th('orderNum','Order #')}${th('division','Division')}${th('pickerName','Picker')}${th('shift','Shift')}${th('date','Date')}<th>Shortage Items</th><th>Outcome</th><th>Action</th></tr>`;
-  if(!list.length){body.innerHTML='<tr><td colspan="9" class="text-c text-muted" style="padding:28px">No back orders 🎉</td></tr>';return;}
-  body.innerHTML=list.map(o=>{
-    const shorts=SHORTAGES.filter(s=>s.orderId===o.id);
-    return`<tr>
-      <td><input type="checkbox" id="boc_${o.id}" style="width:16px;height:16px;cursor:pointer"></td>
-      <td class="mono bold">${o.orderNum}</td>
-      <td>${divBadge(o.division)}</td>
-      <td>${o.pickerName}</td>
-      <td>${shiftBadge(o.shift)}</td>
-      <td>${o.date}</td>
-      <td>${shorts.map(s=>{
-        const sc=s.resolution==='located'?'bg-green':s.resolution==='partial'?'bg-orange':s.resolution==='backorder'?'bg-amber':'bg-gray';
-        const sl=s.resolution==='partial'?`partial (${s.qtyLocated!=null?s.qtyLocated:'?'}/${s.qty})`:s.resolution;
-        return`<div class="text-xs"><strong>${s.product}</strong> · ${s.bin||'—'} · Qty: ${s.qty} · <span class="badge ${sc}">${sl}</span></div>`;
-      }).join('')||'—'}</td>
-      <td>
-        <select id="boRes_${o.id}" style="font-size:11px;padding:4px 7px;width:auto;min-width:200px">
-          <option value="">— Select outcome —</option>
-          <option value="located">✅ Ship Complete — All items located</option>
-          <option value="partial_located">⚡ Ship Partial — Some items located</option>
-          <option value="ship_incomplete">⚠️ Ship Incomplete — Research Later</option>
-        </select>
-      </td>
-      <td><button class="btn btn-success btn-xs" onclick="completeBackorder('${o.id}')">✓ Complete</button></td>
-    </tr>`;
-  }).join('');
+  if(!list.length){body.innerHTML='<tr><td colspan="9" class="text-c text-muted" style="padding:28px">No multi-line back orders 🎉</td></tr>';return;}
+  body.innerHTML=list.map(boOrderRow).join('');
 }
 
 window.completeBackorder=async function(orderId){
@@ -1807,11 +1866,39 @@ window.renderShortages=function(){
   `;
 
   // Helper: shortage status badge including partial
-  function shortBadge(s,full=true){
+  function shortBadge(s){
     if(s.resolution==='located') return'<span class="badge bg-green">✅ All Located</span>';
-    if(s.resolution==='partial') return`<span class="badge bg-orange">⚡ Partial: ${s.qtyLocated||'?'} of ${s.qty}</span>`;
+    if(s.resolution==='partial') return`<span class="badge bg-orange">⚡ Partial: ${s.qtyLocated!=null?s.qtyLocated:'?'} of ${s.qty}</span>`;
     if(s.resolution==='backorder') return'<span class="badge bg-amber">📦 Back Ordered</span>';
     return'<span class="badge bg-gray">⏳ Pending</span>';
+  }
+
+  // ── SINGLE-LINE PRIORITY SECTION ──
+  // Find shortages where the parent order had only 1 line (entire order is shorted)
+  const singleLineShortages=allS.filter(s=>{
+    const order=ORDERS.find(x=>x.id===s.orderId);
+    return order&&(order.lines||0)<=1;
+  });
+  const slSec=document.getElementById('shortSingleSection');
+  const slBody=document.getElementById('shortSingleBody');
+  const slCount=document.getElementById('shortSingleCount');
+  if(singleLineShortages.length){
+    if(slSec)slSec.style.display='block';
+    if(slCount)slCount.textContent=`${singleLineShortages.length} item${singleLineShortages.length!==1?'s':''}`;
+    if(slBody)slBody.innerHTML=singleLineShortages.map(s=>{
+      return`<tr style="background:var(--red-light)">
+        <td class="mono bold">${s.orderNum}</td>
+        <td>${divBadge(s.division)}</td>
+        <td>${s.pickerName}</td>
+        <td class="mono bold">${s.product}</td>
+        <td class="mono">${s.bin||'—'}</td>
+        <td><strong style="color:var(--red)">${s.qty}</strong></td>
+        <td>${shortBadge(s)}</td>
+        <td class="text-xs" style="color:var(--orange)">${s.partialNote||s.notes||'—'}</td>
+      </tr>`;
+    }).join('');
+  } else {
+    if(slSec)slSec.style.display='none';
   }
 
   // ── GROUPED TABLE ──
@@ -1942,51 +2029,73 @@ window.printICSearchSheet=function(){
   const now=new Date().toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
 
   // Group by division for easier IC searching
+  // Single-line orders (complete back orders) go FIRST
+  const singleLineItems=searchItems.filter(s=>{
+    const order=ORDERS.find(x=>x.id===s.orderId);
+    return order&&(order.lines||0)<=1;
+  });
+  const multiLineItems=searchItems.filter(s=>{
+    const order=ORDERS.find(x=>x.id===s.orderId);
+    return !order||(order.lines||0)>1;
+  });
+
   const byDiv={};
-  searchItems.forEach(s=>{
+  multiLineItems.forEach(s=>{
     const k=s.division||'UNK';
     if(!byDiv[k])byDiv[k]=[];
     byDiv[k].push(s);
   });
 
-  const rows=Object.entries(byDiv).sort((a,b)=>a[0].localeCompare(b[0])).map(([divCode,items])=>{
+  function buildItemRow(s){
+    const isPartial=s.resolution==='partial';
+    const remaining=isPartial?(s.qty-(s.qtyLocated||0)):s.qty;
+    const statusNote=isPartial?`<tr style="border-bottom:1px solid #e8eaed;background:#fff8f0"><td colspan="7" style="padding:3px 8px 8px"><span style="background:#fff3e0;color:#e65100;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">PARTIAL — ${s.qtyLocated||0} of ${s.qty} found, ${remaining} still missing</span></td></tr>`:'';
+    return`<tr style="border-bottom:1px solid #e8eaed;${isPartial?'background:#fff8f0':''}">
+      <td style="padding:10px 8px;font-family:'Courier New',monospace;font-weight:700;font-size:13px">${s.product}</td>
+      <td style="padding:10px 8px;text-align:center"><span style="background:${isPartial?'#ff9800':'#f44336'};color:#fff;padding:3px 9px;border-radius:4px;font-weight:700;font-size:14px">${remaining}</span></td>
+      <td style="padding:10px 8px;font-family:'Courier New',monospace;font-size:12px">${s.bin||'—'}</td>
+      <td style="padding:10px 8px;font-size:12px">${s.pickerName}</td>
+      <td style="padding:10px 8px;font-family:'Courier New',monospace;font-size:12px">${s.orderNum}</td>
+      <td style="padding:10px 8px;font-size:11px;color:#555">${s.notes||s.partialNote||''}</td>
+      <td style="padding:10px 8px;width:90px"><div style="border:1px solid #ccc;height:32px;border-radius:4px;background:#fafafa"></div></td>
+    </tr>${statusNote}`;
+  }
+
+  const tableHeader=`<thead><tr style="background:#f5f5f5;border-bottom:2px solid #e8eaed">
+    <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Product Code</th>
+    <th style="padding:8px;text-align:center;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Qty Needed</th>
+    <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Bin / Location</th>
+    <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Picker</th>
+    <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Order #</th>
+    <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Notes</th>
+    <th style="padding:8px;text-align:center;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">IC ✓</th>
+  </tr></thead>`;
+
+  // Build single-line section (shown first)
+  const singleSection=singleLineItems.length?`
+    <div style="margin-bottom:28px;break-inside:avoid;border:2px solid #dc2626;border-radius:8px;overflow:hidden">
+      <div style="background:#dc2626;color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <span style="font-size:16px;font-weight:900;letter-spacing:.3px">🚨 PRIORITY: Single-Line Orders — LOOK FOR THESE FIRST</span>
+          <div style="font-size:11px;opacity:.85;margin-top:2px">Entire order is shorted. OPS must notify the division if not found.</div>
+        </div>
+        <span style="background:rgba(255,255,255,.25);padding:3px 10px;border-radius:12px;font-weight:700">${singleLineItems.length} item${singleLineItems.length!==1?'s':''}</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-family:'Arial',sans-serif">
+        ${tableHeader}<tbody>${singleLineItems.map(buildItemRow).join('')}</tbody>
+      </table>
+    </div>`:'';
+
+  const rows=singleSection+Object.entries(byDiv).sort((a,b)=>a[0].localeCompare(b[0])).map(([divCode,items])=>{
     const divName=DIV[divCode]?.name||divCode;
     const divColor=DIV[divCode]?.color||'#8b93a7';
-    const itemRows=items.map((s,i)=>{
-      const isPartial=s.resolution==='partial';
-      const remaining=isPartial?(s.qty-(s.qtyLocated||0)):s.qty;
-      const statusNote=isPartial?`<span style="background:#fff3e0;color:#e65100;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">PARTIAL — ${s.qtyLocated||0} of ${s.qty} found, ${remaining} still missing</span>`:'';
-      return`<tr style="border-bottom:1px solid #e8eaed;${isPartial?'background:#fff8f0':''}">
-        <td style="padding:10px 8px;font-family:'Courier New',monospace;font-weight:700;font-size:13px">${s.product}</td>
-        <td style="padding:10px 8px;text-align:center">
-          <span style="background:${isPartial?'#ff9800':'#f44336'};color:#fff;padding:3px 9px;border-radius:4px;font-weight:700;font-size:14px">${remaining}</span>
-        </td>
-        <td style="padding:10px 8px;font-family:'Courier New',monospace;font-size:12px">${s.bin||'—'}</td>
-        <td style="padding:10px 8px;font-size:12px">${s.pickerName}</td>
-        <td style="padding:10px 8px;font-family:'Courier New',monospace;font-size:12px">${s.orderNum}</td>
-        <td style="padding:10px 8px;font-size:11px;color:#555">${s.notes||s.partialNote||''}</td>
-        <td style="padding:10px 8px;width:90px"><div style="border:1px solid #ccc;height:32px;border-radius:4px;background:#fafafa"></div></td>
-      </tr>
-      ${statusNote?`<tr style="border-bottom:1px solid #e8eaed;background:#fff8f0"><td colspan="7" style="padding:3px 8px 8px">${statusNote}</td></tr>`:''}`;
-    }).join('');
     return`<div style="margin-bottom:24px;break-inside:avoid">
       <div style="background:${divColor};color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:15px;font-weight:800;letter-spacing:.3px">${divName}</span>
         <span style="font-size:11px;opacity:.85">${items.length} item${items.length!==1?'s':''} to locate</span>
       </div>
       <table style="width:100%;border-collapse:collapse;border:1px solid #e8eaed;border-top:none;font-family:'Arial',sans-serif">
-        <thead>
-          <tr style="background:#f5f5f5;border-bottom:2px solid #e8eaed">
-            <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Product Code</th>
-            <th style="padding:8px;text-align:center;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Qty Needed</th>
-            <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Bin / Location</th>
-            <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Picker</th>
-            <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Order #</th>
-            <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Notes</th>
-            <th style="padding:8px;text-align:center;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">IC ✓</th>
-          </tr>
-        </thead>
-        <tbody>${itemRows}</tbody>
+        ${tableHeader}<tbody>${items.map(buildItemRow).join('')}</tbody>
       </table>
     </div>`;
   }).join('');
@@ -2295,7 +2404,9 @@ window.showPrintPage=function(){
   const s2done=done.filter(o=>o.shift==='2nd');
   const s1lines=s1done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
   const s2lines=s2done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-  const totalShortages=SHORTAGES.filter(s=>byPeriod([{startTs:ORDERS.find(x=>x.id===s.orderId)?.startTs||0}],p).length>0).length;
+  // Match shortages to orders that are in the filtered period by using the order's date field
+  const ordersInPeriod=new Set(done.map(o=>o.id).concat(orders.filter(o=>o.status==='open').map(o=>o.id)));
+  const totalShortages=SHORTAGES.filter(s=>ordersInPeriod.has(s.orderId)).length;
   const activeCount=pickerData.length;
   const topPicker=pickerData[0]?.name||'—';
   const topLines=pickerData[0]?.lines||0;
