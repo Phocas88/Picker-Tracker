@@ -56,7 +56,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--tex
 .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px;box-shadow:var(--shadow-sm)}
 .stat-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:5px}
 .stat-value{font-size:24px;font-weight:700;letter-spacing:-1px;line-height:1}.stat-sub{font-size:11px;color:var(--text3);margin-top:3px}
-.stat-card.c-accent{border-left:3px solid var(--accent)}.stat-card.c-green{border-left:3px solid var(--green)}.stat-card.c-amber{border-left:3px solid var(--amber)}.stat-card.c-red{border-left:3px solid var(--red)}.stat-card.c-teal{border-left:3px solid var(--teal)}.stat-card.c-purple{border-left:3px solid var(--purple)}
+.stat-card.c-accent{border-left:3px solid var(--accent)}.stat-card.c-green{border-left:3px solid var(--green)}.stat-card.c-amber{border-left:3px solid var(--amber)}.stat-card.c-red{border-left:3px solid var(--red)}.stat-card.c-teal{border-left:3px solid var(--teal)}.stat-card.c-purple{border-left:3px solid var(--purple)}.stat-card.c-orange{border-left:3px solid var(--orange)}
 input,select,textarea{font-family:'IBM Plex Sans',sans-serif;font-size:14px;border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px 11px;color:var(--text);background:var(--surface);width:100%;transition:border-color .15s,box-shadow .15s;outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(29,110,245,.12)}
 input.big{font-size:16px;font-family:'IBM Plex Mono',monospace;font-weight:500;padding:11px 13px;letter-spacing:.5px}
@@ -353,7 +353,8 @@ tbody td{padding:8px 11px;font-size:12px}
     <div class="flex gap-8">
       <select id="shortPeriod" onchange="renderShortages()" class="w-auto"><option value="today">Today</option><option value="week">This Week</option><option value="month">This Month</option><option value="all">All Time</option></select>
       <select id="shortDivF" onchange="renderShortages()" class="w-auto"><option value="">All Divisions</option></select>
-      <select id="shortStatusF" onchange="renderShortages()" class="w-auto"><option value="">All Status</option><option value="pending">Pending</option><option value="located">Located</option><option value="backorder">Back Ordered</option></select>
+      <select id="shortStatusF" onchange="renderShortages()" class="w-auto"><option value="">All Status</option><option value="pending">Pending</option><option value="located">Located</option><option value="partial">Partially Located</option><option value="backorder">Back Ordered</option></select>
+      <button class="btn btn-ghost btn-sm no-print" onclick="printICSearchSheet()">🖨️ IC Search Sheet</button>
       <button class="btn btn-primary btn-sm" id="wmsExportBtn" onclick="initiateWmsExport()">📥 Export WMS Adj. File</button>
     </div>
   </div>
@@ -536,15 +537,27 @@ tbody td{padding:8px 11px;font-size:12px}
 </div>
 
 <div class="modal-overlay modal-sm" id="resolveModal">
-  <div class="modal"><div class="modal-head"><div class="modal-title">Resolve Shortage</div><span class="modal-x" onclick="closeModal('resolveModal')">×</span></div>
+  <div class="modal"><div class="modal-head"><div class="modal-title">📋 Resolve Shortage</div><span class="modal-x" onclick="closeModal('resolveModal')">×</span></div>
     <div class="modal-body">
-      <div class="mono bold mb-8" id="resolveLabel" style="font-size:12px;color:var(--text2)"></div>
+      <div class="mono bold mb-8" id="resolveLabel" style="font-size:12px;color:var(--accent)"></div>
       <div class="form-group"><label>Resolution</label>
-        <select id="resolveType"><option value="">Select…</option><option value="located">✅ Item Located — Found in warehouse</option><option value="backorder">📦 Back Order — Unable to locate</option></select>
+        <select id="resolveType" onchange="togglePartialQty()">
+          <option value="">Select…</option>
+          <option value="located">✅ All Located — Full qty found</option>
+          <option value="partial">⚡ Partially Located — Some qty found</option>
+          <option value="backorder">📦 Back Order — Unable to locate</option>
+        </select>
       </div>
-      <div class="form-group"><label>Notes (optional)</label><textarea id="resolveNotes" rows="2" placeholder="Add notes…"></textarea></div>
+      <div class="form-group" id="partialQtyGroup" style="display:none">
+        <label>Qty Located <span style="color:var(--text3);font-weight:400">(how many were found)</span></label>
+        <input type="number" id="resolveQtyLocated" placeholder="0" min="0">
+        <div id="resolveQtyHint" class="text-xs text-muted" style="margin-top:4px"></div>
+      </div>
+      <div class="form-group"><label>IC Notes / Annotation</label>
+        <textarea id="resolveNotes" rows="3" placeholder="Where was it found? Which location? Any details for the team…"></textarea>
+      </div>
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('resolveModal')">Cancel</button><button class="btn btn-primary" onclick="submitResolve()">Save</button></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('resolveModal')">Cancel</button><button class="btn btn-primary" onclick="submitResolve()">Save Resolution</button></div>
   </div>
 </div>
 
@@ -1687,24 +1700,37 @@ window.renderShortages=function(){
   if(sf)allS=allS.filter(s=>s.resolution===sf);
   const pending=allS.filter(s=>s.resolution==='pending').length;
   const located=allS.filter(s=>s.resolution==='located').length;
+  const partial=allS.filter(s=>s.resolution==='partial').length;
   const bo=allS.filter(s=>s.resolution==='backorder').length;
   document.getElementById('shortSummaryCards').innerHTML=`
     <div class="stat-card c-red"><div class="stat-label">Total Items Short</div><div class="stat-value">${allS.length}</div><div class="stat-sub">${new Set(allS.map(s=>s.orderId)).size} orders</div></div>
     <div class="stat-card c-amber"><div class="stat-label">Pending</div><div class="stat-value">${pending}</div><div class="stat-sub">awaiting resolution</div></div>
-    <div class="stat-card c-green"><div class="stat-label">Located</div><div class="stat-value">${located}</div><div class="stat-sub">found in warehouse</div></div>
+    <div class="stat-card c-green"><div class="stat-label">Located</div><div class="stat-value">${located}</div><div class="stat-sub">full qty found</div></div>
+    <div class="stat-card c-orange"><div class="stat-label">Partial</div><div class="stat-value">${partial}</div><div class="stat-sub">some qty found</div></div>
     <div class="stat-card c-purple"><div class="stat-label">Back Ordered</div><div class="stat-value">${bo}</div><div class="stat-sub">ordered from supplier</div></div>
   `;
+
+  // Helper: shortage status badge including partial
+  function shortBadge(s,full=true){
+    if(s.resolution==='located') return'<span class="badge bg-green">✅ All Located</span>';
+    if(s.resolution==='partial') return`<span class="badge bg-orange">⚡ Partial: ${s.qtyLocated||'?'} of ${s.qty}</span>`;
+    if(s.resolution==='backorder') return'<span class="badge bg-amber">📦 Back Ordered</span>';
+    return'<span class="badge bg-gray">⏳ Pending</span>';
+  }
 
   // ── GROUPED TABLE ──
   const grouped={};
   allS.forEach(s=>{
     const key=`${s.product}|${s.bin}`;
-    if(!grouped[key])grouped[key]={product:s.product,bin:s.bin,totalQty:0,ordersSet:new Set(),division:s.division,lastDate:s.date,resolution:'pending',ids:[]};
+    if(!grouped[key])grouped[key]={product:s.product,bin:s.bin,totalQty:0,ordersSet:new Set(),division:s.division,lastDate:s.date,resolution:'pending',ids:[],qtyLocated:0,partialNote:'',notes:''};
     grouped[key].totalQty+=s.qty;
     grouped[key].ordersSet.add(s.orderId);
     grouped[key].ids.push(s.id);
     if(s.date>grouped[key].lastDate)grouped[key].lastDate=s.date;
-    if(s.resolution!=='pending')grouped[key].resolution=s.resolution;
+    if(s.resolution==='located'||s.resolution==='backorder'||s.resolution==='partial') grouped[key].resolution=s.resolution;
+    if(s.qtyLocated) grouped[key].qtyLocated+=(s.qtyLocated||0);
+    if(s.partialNote) grouped[key].partialNote=s.partialNote;
+    if(s.notes) grouped[key].notes=s.notes;
   });
   let groupedArr=Object.values(grouped).map(g=>({...g,ordersAffected:g.ordersSet.size}));
   const {col:gc,dir:gd}=SORT.shortGroup;
@@ -1712,11 +1738,24 @@ window.renderShortages=function(){
   groupedArr=sortData(groupedArr,gcMap[gc]||'totalQty',gd);
   const thG=(c,l)=>thSort('shortGroup',c,l,gc,gd);
   const ghead=document.getElementById('shortGroupHead');
-  if(ghead)ghead.innerHTML=`<tr>${thG('product','Product #')}${thG('bin','Bin')}${thG('totalQty','Total Qty Short')}${thG('ordersAffected','Orders Affected')}${thG('division','Division')}<th>Status</th><th>Resolve</th></tr>`;
+  if(ghead)ghead.innerHTML=`<tr>${thG('product','Product #')}${thG('bin','Bin')}${thG('totalQty','Qty Short')}${thG('ordersAffected','Orders')}${thG('division','Division')}<th>Status</th><th>IC Notes</th><th>Resolve</th></tr>`;
   document.getElementById('shortGroupBody').innerHTML=groupedArr.map(g=>{
-    const resBadge=g.resolution==='located'?'<span class="badge bg-green">✅ Located</span>':g.resolution==='backorder'?'<span class="badge bg-amber">📦 Back Ordered</span>':'<span class="badge bg-gray">⏳ Pending</span>';
-    return`<tr><td class="mono bold">${g.product}</td><td class="mono">${g.bin||'—'}</td><td><strong style="color:var(--red)">${g.totalQty}</strong></td><td>${g.ordersAffected}</td><td>${divBadge(g.division)}</td><td>${resBadge}</td><td><button class="btn btn-ghost btn-xs" onclick="openResolveModal('${g.ids[0]}','${g.product}','${g.bin}',${g.totalQty})">Resolve</button></td></tr>`;
-  }).join('')||'<tr><td colspan="7" class="text-c text-muted" style="padding:22px">No shortages</td></tr>';
+    const badge=g.resolution==='located'?'<span class="badge bg-green">✅ All Located</span>':
+                g.resolution==='partial'?`<span class="badge bg-orange">⚡ Partial: ${g.qtyLocated} of ${g.totalQty}</span>`:
+                g.resolution==='backorder'?'<span class="badge bg-amber">📦 Back Ordered</span>':
+                '<span class="badge bg-gray">⏳ Pending</span>';
+    const noteDisplay=g.partialNote?`<div class="text-xs" style="color:var(--orange)">${g.partialNote}</div>`:g.notes?`<div class="text-xs text-muted">${g.notes}</div>`:'—';
+    return`<tr>
+      <td class="mono bold">${g.product}</td>
+      <td class="mono">${g.bin||'—'}</td>
+      <td><strong style="color:var(--red)">${g.totalQty}</strong></td>
+      <td>${g.ordersAffected}</td>
+      <td>${divBadge(g.division)}</td>
+      <td>${badge}</td>
+      <td style="max-width:180px">${noteDisplay}</td>
+      <td><button class="btn btn-ghost btn-xs" onclick="openResolveModal('${g.ids[0]}','${g.product}','${g.bin||''}',${g.totalQty})">Resolve</button></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="8" class="text-c text-muted" style="padding:22px">No shortages</td></tr>';
 
   // ── DETAIL TABLE ──
   const {col:dc,dir:dd}=SORT.shortDetail;
@@ -1724,35 +1763,185 @@ window.renderShortages=function(){
   const detailArr=sortData(allS.slice(),dcMap[dc]||'startTs',dd);
   const thD=(c,l)=>thSort('shortDetail',c,l,dc,dd);
   const dhead=document.getElementById('shortDetailHead');
-  if(dhead)dhead.innerHTML=`<tr>${thD('orderNum','Order #')}${thD('division','Division')}${thD('product','Product #')}${thD('bin','Bin')}${thD('qty','Qty Short')}${thD('date','Date')}${thD('pickerName','Picker')}${thD('resolution','Status')}<th>Notes</th></tr>`;
+  if(dhead)dhead.innerHTML=`<tr>${thD('orderNum','Order #')}${thD('division','Division')}${thD('product','Product #')}${thD('bin','Bin')}${thD('qty','Qty Short')}<th>Qty Found</th>${thD('date','Date')}${thD('pickerName','Picker')}${thD('resolution','Status')}<th>IC Notes</th></tr>`;
   document.getElementById('shortDetailBody').innerHTML=detailArr.map(s=>{
-    const resBadge=s.resolution==='located'?'<span class="badge bg-green">Located</span>':s.resolution==='backorder'?'<span class="badge bg-amber">B/O</span>':'<span class="badge bg-gray">Pending</span>';
-    return`<tr><td class="mono">${s.orderNum}</td><td>${divBadge(s.division)}</td><td class="mono bold">${s.product}</td><td class="mono">${s.bin||'—'}</td><td>${s.qty}</td><td>${s.date}</td><td>${s.pickerName}</td><td>${resBadge}</td><td class="text-xs text-muted">${s.notes||'—'}</td></tr>`;
-  }).join('')||'<tr><td colspan="9" class="text-c text-muted" style="padding:22px">No shortages</td></tr>';
+    const badge=s.resolution==='located'?'<span class="badge bg-green">All Located</span>':
+                s.resolution==='partial'?`<span class="badge bg-orange">Partial</span>`:
+                s.resolution==='backorder'?'<span class="badge bg-amber">B/O</span>':
+                '<span class="badge bg-gray">Pending</span>';
+    const qtyFound=s.resolution==='located'?s.qty:s.resolution==='partial'?(s.qtyLocated||'—'):'—';
+    const noteDisplay=s.partialNote?`<span style="color:var(--orange)">${s.partialNote}</span>${s.notes?` · ${s.notes}`:''}`:s.notes||'—';
+    return`<tr>
+      <td class="mono">${s.orderNum}</td>
+      <td>${divBadge(s.division)}</td>
+      <td class="mono bold">${s.product}</td>
+      <td class="mono">${s.bin||'—'}</td>
+      <td>${s.qty}</td>
+      <td>${qtyFound}</td>
+      <td>${s.date}</td>
+      <td>${s.pickerName}</td>
+      <td>${badge}</td>
+      <td class="text-xs" style="max-width:200px">${noteDisplay}</td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="10" class="text-c text-muted" style="padding:22px">No shortages</td></tr>';
 };
 
 window.openResolveModal=function(shortageId,product,bin,qty){
   resolvingShortageId=shortageId;
-  document.getElementById('resolveLabel').textContent=`Product: ${product} | Bin: ${bin} | Qty: ${qty}`;
+  document.getElementById('resolveLabel').textContent=`Product: ${product}  |  Bin: ${bin||'—'}  |  Qty Short: ${qty}`;
   document.getElementById('resolveType').value='';
   document.getElementById('resolveNotes').value='';
+  document.getElementById('resolveQtyLocated').value='';
+  document.getElementById('resolveQtyHint').textContent=`Short qty: ${qty}`;
+  document.getElementById('partialQtyGroup').style.display='none';
   openModal('resolveModal');
+};
+
+window.togglePartialQty=function(){
+  const type=document.getElementById('resolveType').value;
+  const grp=document.getElementById('partialQtyGroup');
+  grp.style.display=type==='partial'?'block':'none';
 };
 
 window.submitResolve=async function(){
   if(!resolvingShortageId)return;
   const type=document.getElementById('resolveType').value;
   const notes=document.getElementById('resolveNotes').value.trim();
+  const qtyLocated=parseInt(document.getElementById('resolveQtyLocated').value)||0;
   if(!type){alert('Please select a resolution.');return;}
-  // Find all shortages with same product+bin combo and resolve them all
+
   const target=SHORTAGES.find(s=>s.id===resolvingShortageId);
-  if(target){
-    const siblings=SHORTAGES.filter(s=>s.product===target.product&&s.bin===target.bin);
-    for(const s of siblings){await updateDoc(doc(db,'shortages',s.id),{resolution:type,notes});}
-  } else {
-    await updateDoc(doc(db,'shortages',resolvingShortageId),{resolution:type,notes});
+  if(!target)return;
+
+  const update={resolution:type,notes,resolvedAt:Date.now()};
+  if(type==='partial'){
+    const remaining=Math.max(0,target.qty-qtyLocated);
+    update.qtyLocated=qtyLocated;
+    update.qtyRemaining=remaining;
+    update.partialNote=`${qtyLocated} of ${target.qty} located. ${remaining} still missing.`;
   }
+
+  // Apply to all siblings with same product+bin
+  const siblings=SHORTAGES.filter(s=>s.product===target.product&&s.bin===target.bin);
+  for(const s of siblings){await updateDoc(doc(db,'shortages',s.id),update);}
+
   resolvingShortageId=null;closeModal('resolveModal');
+};
+
+// ── IC SEARCH SHEET PRINT ─────────────────────────────
+window.printICSearchSheet=function(){
+  // Use currently filtered shortages matching what's on screen
+  const p=document.getElementById('shortPeriod')?.value||'today';
+  const dv=document.getElementById('shortDivF')?.value||'';
+  const sf=document.getElementById('shortStatusF')?.value||'';
+  let allS=SHORTAGES.map(s=>({...s,startTs:s.startTs||(ORDERS.find(x=>x.id===s.orderId)?.startTs||0)}));
+  allS=byPeriod(allS,p);
+  if(dv)allS=allS.filter(s=>s.division===dv);
+  if(sf)allS=allS.filter(s=>s.resolution===sf);
+  // Default: only show pending + partial for IC search sheet (items still needing attention)
+  const searchItems=sf?allS:allS.filter(s=>s.resolution==='pending'||s.resolution==='partial');
+  if(!searchItems.length){alert('No pending or partial shortages to print.');return;}
+
+  const periodLabels={today:'Today',week:'This Week',month:'This Month',all:'All Time'};
+  const now=new Date().toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+  // Group by division for easier IC searching
+  const byDiv={};
+  searchItems.forEach(s=>{
+    const k=s.division||'UNK';
+    if(!byDiv[k])byDiv[k]=[];
+    byDiv[k].push(s);
+  });
+
+  const rows=Object.entries(byDiv).sort((a,b)=>a[0].localeCompare(b[0])).map(([divCode,items])=>{
+    const divName=DIV[divCode]?.name||divCode;
+    const divColor=DIV[divCode]?.color||'#8b93a7';
+    const itemRows=items.map((s,i)=>{
+      const isPartial=s.resolution==='partial';
+      const remaining=isPartial?(s.qty-(s.qtyLocated||0)):s.qty;
+      const statusNote=isPartial?`<span style="background:#fff3e0;color:#e65100;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700">PARTIAL — ${s.qtyLocated||0} of ${s.qty} found, ${remaining} still missing</span>`:'';
+      return`<tr style="border-bottom:1px solid #e8eaed;${isPartial?'background:#fff8f0':''}">
+        <td style="padding:10px 8px;font-family:'Courier New',monospace;font-weight:700;font-size:13px">${s.product}</td>
+        <td style="padding:10px 8px;text-align:center">
+          <span style="background:${isPartial?'#ff9800':'#f44336'};color:#fff;padding:3px 9px;border-radius:4px;font-weight:700;font-size:14px">${remaining}</span>
+        </td>
+        <td style="padding:10px 8px;font-family:'Courier New',monospace;font-size:12px">${s.bin||'—'}</td>
+        <td style="padding:10px 8px;font-size:12px">${s.pickerName}</td>
+        <td style="padding:10px 8px;font-family:'Courier New',monospace;font-size:12px">${s.orderNum}</td>
+        <td style="padding:10px 8px;font-size:11px;color:#555">${s.notes||s.partialNote||''}</td>
+        <td style="padding:10px 8px;width:90px"><div style="border:1px solid #ccc;height:32px;border-radius:4px;background:#fafafa"></div></td>
+      </tr>
+      ${statusNote?`<tr style="border-bottom:1px solid #e8eaed;background:#fff8f0"><td colspan="7" style="padding:3px 8px 8px">${statusNote}</td></tr>`:''}`;
+    }).join('');
+    return`<div style="margin-bottom:24px;break-inside:avoid">
+      <div style="background:${divColor};color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:15px;font-weight:800;letter-spacing:.3px">${divName}</span>
+        <span style="font-size:11px;opacity:.85">${items.length} item${items.length!==1?'s':''} to locate</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #e8eaed;border-top:none;font-family:'Arial',sans-serif">
+        <thead>
+          <tr style="background:#f5f5f5;border-bottom:2px solid #e8eaed">
+            <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Product Code</th>
+            <th style="padding:8px;text-align:center;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Qty Needed</th>
+            <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Bin / Location</th>
+            <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Picker</th>
+            <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Order #</th>
+            <th style="padding:8px;text-align:left;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">Notes</th>
+            <th style="padding:8px;text-align:center;font-size:11px;color:#666;font-weight:700;text-transform:uppercase">IC ✓</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+
+  const html=`<!DOCTYPE html><html>
+  <head>
+    <meta charset="UTF-8">
+    <title>IC Shortage Search Sheet</title>
+    <style>
+      @page{margin:16mm 14mm}
+      body{font-family:'Arial',sans-serif;background:#fff;color:#1a1d23;margin:0;padding:0}
+      @media print{.no-print{display:none!important}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+    </style>
+  </head>
+  <body>
+    <div style="max-width:900px;margin:0 auto;padding:16px">
+      <!-- Header -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1d4ed8;padding-bottom:12px;margin-bottom:20px">
+        <div>
+          <div style="font-size:22px;font-weight:900;color:#1a1d23;letter-spacing:-.5px">📦 IC Shortage Search Sheet</div>
+          <div style="font-size:12px;color:#555;margin-top:3px">Warehouse Pick Tracker · Built by Ruben Mendoza, IC Manager</div>
+        </div>
+        <div style="text-align:right;font-size:12px;color:#555">
+          <div><strong>Period:</strong> ${periodLabels[p]||p}${dv?' · '+DIV[dv]?.name:''}</div>
+          <div><strong>Items:</strong> ${searchItems.length} to locate</div>
+          <div><strong>Printed:</strong> ${now}</div>
+        </div>
+      </div>
+
+      <!-- Instructions -->
+      <div style="background:#e8f4fd;border:1px solid #bee3f8;border-radius:6px;padding:10px 14px;margin-bottom:18px;font-size:12px;color:#1e40af">
+        <strong>Instructions for IC Team:</strong> Locate each item below in the warehouse.
+        Check the IC ✓ box when found. If only part of the qty is located, note the actual qty found.
+        Return this sheet to the IC Manager when complete.
+      </div>
+
+      ${rows}
+
+      <!-- Footer signature line -->
+      <div style="margin-top:28px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;font-size:11px;color:#555">
+        <div><div style="border-bottom:1px solid #999;margin-bottom:4px;height:24px"></div>IC Team Member</div>
+        <div><div style="border-bottom:1px solid #999;margin-bottom:4px;height:24px"></div>Date Searched</div>
+        <div><div style="border-bottom:1px solid #999;margin-bottom:4px;height:24px"></div>IC Manager Sign-off</div>
+      </div>
+    </div>
+    <script>window.onload=()=>window.print();<\/script>
+  </body></html>`;
+
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();}
+  else{alert('Pop-up blocked. Please allow pop-ups for this site to print.');}
 };
 
 // ── WMS EXPORT ───────────────────────────────────────
