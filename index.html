@@ -940,7 +940,7 @@ function startListeners(){
     const pg=activePage();if(pg==='pickers')renderPickers();if(pg==='alerts')renderAlerts();if(pg==='live')renderLive();
   });
   onSnapshot(collection(db,'shortages'),snap=>{
-    SHORTAGES=snap.docs.map(d=>{const x=d.data();return{id:d.id,orderId:x.orderId,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,date:x.date,product:x.product,bin:x.bin,qty:x.qty||0,resolution:x.resolution||'pending',notes:x.notes||'',startTs:tsMs(x.startTs)}});
+    SHORTAGES=snap.docs.map(d=>{const x=d.data();return{id:d.id,orderId:x.orderId,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,date:x.date,product:x.product,bin:x.bin,qty:x.qty||0,resolution:x.resolution||'pending',notes:x.notes||'',startTs:tsMs(x.startTs),qtyLocated:x.qtyLocated??null,qtyRemaining:x.qtyRemaining??null,partialNote:x.partialNote||'',resolvedAt:tsMs(x.resolvedAt)}});
     updateBadges();const pg=activePage();if(pg==='shortages')renderShortages();if(pg==='backorder')renderBackorder();
   });
   onSnapshot(collection(db,'loginLog'),snap=>{
@@ -1747,7 +1747,7 @@ function renderBackorder(){
       <td>${o.date}</td>
       <td>${shorts.map(s=>{
         const sc=s.resolution==='located'?'bg-green':s.resolution==='partial'?'bg-orange':s.resolution==='backorder'?'bg-amber':'bg-gray';
-        const sl=s.resolution==='partial'?`partial (${s.qtyLocated||'?'}/${s.qty})`:s.resolution;
+        const sl=s.resolution==='partial'?`partial (${s.qtyLocated!=null?s.qtyLocated:'?'}/${s.qty})`:s.resolution;
         return`<div class="text-xs"><strong>${s.product}</strong> · ${s.bin||'—'} · Qty: ${s.qty} · <span class="badge ${sc}">${sl}</span></div>`;
       }).join('')||'—'}</td>
       <td>
@@ -1824,7 +1824,7 @@ window.renderShortages=function(){
     grouped[key].ids.push(s.id);
     if(s.date>grouped[key].lastDate)grouped[key].lastDate=s.date;
     if(s.resolution==='located'||s.resolution==='backorder'||s.resolution==='partial') grouped[key].resolution=s.resolution;
-    if(s.qtyLocated) grouped[key].qtyLocated+=(s.qtyLocated||0);
+    if(s.qtyLocated!=null) grouped[key].qtyLocated+=(s.qtyLocated||0);
     if(s.partialNote) grouped[key].partialNote=s.partialNote;
     if(s.notes) grouped[key].notes=s.notes;
   });
@@ -1837,7 +1837,7 @@ window.renderShortages=function(){
   if(ghead)ghead.innerHTML=`<tr>${thG('product','Product #')}${thG('bin','Bin')}${thG('totalQty','Qty Short')}${thG('ordersAffected','Orders')}${thG('division','Division')}<th>Status</th><th>IC Notes</th><th>Resolve</th></tr>`;
   document.getElementById('shortGroupBody').innerHTML=groupedArr.map(g=>{
     const badge=g.resolution==='located'?'<span class="badge bg-green">✅ All Located</span>':
-                g.resolution==='partial'?`<span class="badge bg-orange">⚡ Partial: ${g.qtyLocated} of ${g.totalQty}</span>`:
+                g.resolution==='partial'?`<span class="badge bg-orange">⚡ Partial: ${g.qtyLocated!=null?g.qtyLocated:'?'} of ${g.totalQty}</span>`:
                 g.resolution==='backorder'?'<span class="badge bg-amber">📦 Back Ordered</span>':
                 '<span class="badge bg-gray">⏳ Pending</span>';
     const noteDisplay=g.partialNote?`<div class="text-xs" style="color:var(--orange)">${g.partialNote}</div>`:g.notes?`<div class="text-xs text-muted">${g.notes}</div>`:'—';
@@ -1862,10 +1862,10 @@ window.renderShortages=function(){
   if(dhead)dhead.innerHTML=`<tr>${thD('orderNum','Order #')}${thD('division','Division')}${thD('product','Product #')}${thD('bin','Bin')}${thD('qty','Qty Short')}<th>Qty Found</th>${thD('date','Date')}${thD('pickerName','Picker')}${thD('resolution','Status')}<th>IC Notes</th></tr>`;
   document.getElementById('shortDetailBody').innerHTML=detailArr.map(s=>{
     const badge=s.resolution==='located'?'<span class="badge bg-green">All Located</span>':
-                s.resolution==='partial'?`<span class="badge bg-orange">Partial</span>`:
+                s.resolution==='partial'?`<span class="badge bg-orange">Partial: ${s.qtyLocated!=null?s.qtyLocated:'?'}/${s.qty}</span>`:
                 s.resolution==='backorder'?'<span class="badge bg-amber">B/O</span>':
                 '<span class="badge bg-gray">Pending</span>';
-    const qtyFound=s.resolution==='located'?s.qty:s.resolution==='partial'?(s.qtyLocated||'—'):'—';
+    const qtyFound=s.resolution==='located'?s.qty:s.resolution==='partial'?(s.qtyLocated!=null?s.qtyLocated:'—'):'—';
     const noteDisplay=s.partialNote?`<span style="color:var(--orange)">${s.partialNote}</span>${s.notes?` · ${s.notes}`:''}`:s.notes||'—';
     return`<tr>
       <td class="mono">${s.orderNum}</td>
