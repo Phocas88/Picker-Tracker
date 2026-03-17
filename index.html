@@ -1694,6 +1694,7 @@ window.renderLive=function(){
 
   // Sortable table
   const th=(c,l)=>thSort('live',c,l,col,dir);
+  const thead=document.getElementById('liveTableHead');
   if(thead)thead.innerHTML=`<tr>
     <th style="width:32px">#</th>
     ${th('name','Picker')}
