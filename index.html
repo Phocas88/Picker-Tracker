@@ -104,7 +104,14 @@ tbody td{padding:8px 11px;font-size:12px}
 .settings-hdr{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)}
 .resolve-status-located{background:var(--green-light);color:var(--green)}.resolve-status-backorder{background:var(--amber-light);color:var(--amber)}.resolve-status-pending{background:var(--surface3);color:var(--text3)}
 .wms-preview{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-family:'IBM Plex Mono',monospace;font-size:11px;max-height:200px;overflow-y:auto;margin-top:8px;white-space:pre}
-@media print{.app-header,.nav-tabs,.no-print{display:none!important}.page{display:block!important}#page-print{display:block!important}body{background:#fff;color:#000}}
+@media print{
+  .app-header,.nav-tabs,.no-print{display:none!important}
+  body{background:#fff!important;color:#000!important}
+  .page{display:none!important}
+  #page-print{display:block!important}
+  #page-print .no-print{display:none!important}
+  * {-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 .mb-4{margin-bottom:4px}.mb-8{margin-bottom:8px}.mb-10{margin-bottom:10px}.mb-12{margin-bottom:12px}.mb-16{margin-bottom:16px}.mb-20{margin-bottom:20px}
 .mt-4{margin-top:4px}.mt-8{margin-top:8px}.mt-10{margin-top:10px}.mt-12{margin-top:12px}
 .flex{display:flex}.flex-c{display:flex;align-items:center}.gap-6{gap:6px}.gap-8{gap:8px}.gap-10{gap:10px}.gap-12{gap:12px}
@@ -237,7 +244,7 @@ tbody td{padding:8px 11px;font-size:12px}
     <div class="card"><div class="card-header"><div class="card-title">Division Breakdown</div></div><div class="card-body" id="dashDivBreak"></div></div>
   </div>
   <div class="card"><div class="card-header"><div class="card-title">Picker Performance</div></div>
-    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>Picker</th><th>Shift</th><th>Orders</th><th>Total Lines</th><th>Avg Lines/Order</th><th>Avg Time/Order</th><th>Lines/Hr</th><th>Shortages</th></tr></thead><tbody id="dashPickerBody"></tbody></table></div></div>
+    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead id="dashPickerHead"><tr></tr></thead><tbody id="dashPickerBody"></tbody></table></div></div>
   </div>
 </div>
 
@@ -281,7 +288,7 @@ tbody td{padding:8px 11px;font-size:12px}
     </div>
   </div>
   <div class="card"><div class="card-body" style="padding:0">
-    <div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Start</th><th>Lines</th><th>Shortages</th><th>Status</th><th></th></tr></thead><tbody id="openOrdersBody"></tbody></table></div>
+    <div class="table-wrap"><table><thead id="openOrdersHead"><tr></tr></thead><tbody id="openOrdersBody"></tbody></table></div>
   </div></div>
 </div>
 
@@ -328,9 +335,14 @@ tbody td{padding:8px 11px;font-size:12px}
 
 <!-- BACK ORDERS -->
 <div class="page" id="page-backorder">
-  <div class="alert alert-amber">🔄 Orders with shortages awaiting fulfillment. Check the box then click Complete to move to archive.</div>
+  <div class="alert alert-amber">🔄 Orders with shortages awaiting fulfillment. Check the box, select an outcome, then click Complete.</div>
+  <div class="flex-c gap-8 mb-12" style="flex-wrap:wrap">
+    <input type="text" id="boSearch" placeholder="🔍 Search order #, picker…" oninput="renderBackorder()" style="width:220px">
+    <select id="boShiftF" onchange="renderBackorder()" class="w-auto"><option value="">All Shifts</option><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select>
+    <select id="boDivF" onchange="renderBackorder()" class="w-auto" style="min-width:120px"><option value="">All Divisions</option><option value="GT">TAG</option><option value="NH">NAPA</option><option value="FS">Forside</option><option value="EE">Ever Ellis</option><option value="BC">Beachcombers</option><option value="VP">VIP</option><option value="TP">Transpac</option></select>
+  </div>
   <div class="card"><div class="card-header"><div class="card-title">Back Order Queue</div></div>
-    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>✓</th><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Shortage Items</th><th>Outcome</th><th>Action</th></tr></thead><tbody id="backorderBody"></tbody></table></div></div>
+    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead id="backorderHead"><tr></tr></thead><tbody id="backorderBody"></tbody></table></div></div>
   </div>
 </div>
 
@@ -348,11 +360,11 @@ tbody td{padding:8px 11px;font-size:12px}
   <div class="grid-4 mb-12" id="shortSummaryCards"></div>
   <div class="card mb-12">
     <div class="card-header"><div class="card-title">Grouped by Product &amp; Bin</div><div class="text-xs text-muted">Same product # + bin are combined</div></div>
-    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>Product #</th><th>Bin</th><th>Total Qty Short</th><th>Orders Affected</th><th>Division</th><th>Status</th><th>Resolve</th></tr></thead><tbody id="shortGroupBody"></tbody></table></div></div>
+    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead id="shortGroupHead"><tr></tr></thead><tbody id="shortGroupBody"></tbody></table></div></div>
   </div>
   <div class="card">
     <div class="card-header"><div class="card-title">All Shortage Detail</div></div>
-    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Product #</th><th>Bin</th><th>Qty Short</th><th>Date</th><th>Picker</th><th>Status</th><th>Notes</th></tr></thead><tbody id="shortDetailBody"></tbody></table></div></div>
+    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead id="shortDetailHead"><tr></tr></thead><tbody id="shortDetailBody"></tbody></table></div></div>
   </div>
 </div>
 
@@ -360,7 +372,7 @@ tbody td{padding:8px 11px;font-size:12px}
 <div class="page" id="page-open24">
   <div class="alert alert-amber mb-12">⚠️ Orders open more than 24 hours without completion.</div>
   <div class="card"><div class="card-header"><div class="card-title">Open Orders &gt; 24 Hours</div></div>
-    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Start</th><th>Lines</th><th>Hours Open</th></tr></thead><tbody id="open24Body"></tbody></table></div></div>
+    <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead id="open24Head"><tr></tr></thead><tbody id="open24Body"></tbody></table></div></div>
   </div>
 </div>
 
@@ -373,13 +385,16 @@ tbody td{padding:8px 11px;font-size:12px}
       <select id="archDiv" onchange="renderArchive()" class="w-auto" style="min-width:110px">
         <option value="">All Divisions</option><option value="GT">TAG (GT)</option><option value="NH">NAPA (NH)</option><option value="FS">Forside (FS)</option><option value="EE">Ever Ellis (EE)</option><option value="BC">Beachcombers (BC)</option><option value="VP">VIP (VP)</option><option value="TP">Transpac (TP)</option>
       </select>
+      <select id="archStatus" onchange="renderArchive()" class="w-auto" style="min-width:130px">
+        <option value="">All Statuses</option><option value="closed">✓ Completed</option><option value="backorder_done">✓ B/O Done</option><option value="ship_incomplete">⚠️ Ship Incomplete</option>
+      </select>
       <input type="date" id="archFrom" onchange="renderArchive()" style="width:auto"><input type="date" id="archTo" onchange="renderArchive()" style="width:auto">
       <button class="btn btn-ghost btn-sm" onclick="clearArchFilters()">Clear</button>
     </div>
     <div id="archCount" class="text-xs text-muted"></div>
   </div></div>
   <div class="card"><div class="card-body" style="padding:0">
-    <div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Start</th><th>Completed</th><th>Duration</th><th>Lines</th><th>Shortages</th><th>Status</th><th></th></tr></thead><tbody id="archBody"></tbody></table></div>
+    <div class="table-wrap"><table><thead id="archHead"><tr></tr></thead><tbody id="archBody"></tbody></table></div>
     <div id="archPag" style="padding:10px 14px;display:flex;gap:7px;align-items:center;border-top:1px solid var(--border);flex-wrap:wrap"></div>
   </div></div>
 </div>
@@ -656,6 +671,41 @@ let currentUser = null;
 
 // ── CACHE ────────────────────────────────────────────
 let ORDERS=[], PICKERS=[], SHORTAGES=[], LOGIN_LOG=[];
+
+// ── SORT STATE ───────────────────────────────────────
+const SORT={
+  openOrders:  {col:'startTs', dir:-1},
+  archive:     {col:'endTs',   dir:-1},
+  open24:      {col:'startTs', dir:1},
+  shortGroup:  {col:'totalQty',dir:-1},
+  shortDetail: {col:'date',    dir:-1},
+  dashboard:   {col:'lines',   dir:-1},
+  backorder:   {col:'startTs', dir:-1},
+};
+function sortData(arr,col,dir){
+  return arr.slice().sort((a,b)=>{
+    let av=a[col],bv=b[col];
+    if(av==null)av=dir>0?Infinity:-Infinity;
+    if(bv==null)bv=dir>0?Infinity:-Infinity;
+    if(typeof av==='string')return dir*av.localeCompare(String(bv));
+    return dir*(av-bv);
+  });
+}
+function thSort(tableKey,col,label,currentCol,currentDir){
+  const active=currentCol===col;
+  const arrow=active?(currentDir>0?' ↑':' ↓'):'';
+  return`<th style="cursor:pointer;user-select:none;${active?'color:var(--accent)':''}" onclick="setSort('${tableKey}','${col}')">${label}${arrow}</th>`;
+}
+window.setSort=function(tableKey,col){
+  if(SORT[tableKey].col===col){SORT[tableKey].dir*=-1;}
+  else{SORT[tableKey].col=col;SORT[tableKey].dir=-1;}
+  const fns={
+    openOrders:renderOpenOrders, archive:renderArchive, open24:renderOpen24,
+    shortGroup:renderShortages, shortDetail:renderShortages,
+    dashboard:renderDashboard, backorder:renderBackorder
+  };
+  if(fns[tableKey])fns[tableKey]();
+};
 
 // ── UTILS ────────────────────────────────────────────
 const divCode  = n=>{const u=(n||'').toUpperCase();return Object.keys(DIV).find(c=>u.startsWith(c))||null};
@@ -1094,30 +1144,34 @@ function renderTodayFeed(){
 window.renderOpenOrders=function(){
   const q=(document.getElementById('openSearch')?.value||'').toLowerCase();
   const sf=document.getElementById('openShiftF')?.value||'';
+  const {col,dir}=SORT.openOrders;
   let list=ORDERS.filter(o=>o.status==='open'||o.status==='backorder');
-  if(q)list=list.filter(o=>o.orderNum.toLowerCase().includes(q)||o.pickerName.toLowerCase().includes(q));
+  if(q)list=list.filter(o=>o.orderNum.toLowerCase().includes(q)||o.pickerName.toLowerCase().includes(q)||(DIV[o.division]?.name||'').toLowerCase().includes(q));
   if(sf)list=list.filter(o=>o.shift===sf);
-  list.sort((a,b)=>b.startTs-a.startTs);
+  // Map for sort cols
+  list=list.map(o=>({...o,_sc:SHORTAGES.filter(s=>s.orderId===o.id).length}));
+  const colMap={orderNum:'orderNum',division:'division',pickerName:'pickerName',shift:'shift',date:'date',startTs:'startTs',lines:'lines',shortages:'_sc',status:'status'};
+  list=sortData(list,colMap[col]||col,dir);
+  const th=(c,l)=>thSort('openOrders',c,l,col,dir);
+  const head=document.getElementById('openOrdersHead');
+  if(head)head.innerHTML=`<tr>${th('orderNum','Order #')}${th('division','Division')}${th('pickerName','Picker')}${th('shift','Shift')}${th('date','Date')}${th('startTs','Start')}${th('lines','Lines')}${th('shortages','Shortages')}${th('status','Status')}<th></th></tr>`;
   const body=document.getElementById('openOrdersBody');
   if(!list.length){body.innerHTML='<tr><td colspan="10" class="text-c text-muted" style="padding:28px">No open orders</td></tr>';return;}
-  body.innerHTML=list.map(o=>{
-    const sc=SHORTAGES.filter(s=>s.orderId===o.id).length;
-    return`<tr>
-      <td class="mono bold">${o.orderNum}</td>
-      <td>${divBadge(o.division)}</td>
-      <td>${o.pickerName}</td>
-      <td>${shiftBadge(o.shift)}</td>
-      <td>${o.date}</td>
-      <td>${fmtTime(o.startTs)}</td>
-      <td>${o.lines||'—'}</td>
-      <td>${sc>0?`<span class="badge bg-red">${sc}</span>`:'<span class="badge bg-gray">None</span>'}</td>
-      <td>${statusBadgeOrder(o.status)}</td>
-      <td style="white-space:nowrap">
-        <button class="btn btn-ghost btn-xs" onclick="openEditOrder('${o.id}')">✏️ Edit</button>
-        <button class="btn btn-danger btn-xs" style="margin-left:4px" onclick="initiateDeleteOrder('${o.id}','${o.orderNum.replace(/'/g,"\\'")}','${o.pickerName.replace(/'/g,"\\'")}')">🗑️</button>
-      </td>
-    </tr>`;
-  }).join('');
+  body.innerHTML=list.map(o=>`<tr>
+    <td class="mono bold">${o.orderNum}</td>
+    <td>${divBadge(o.division)}</td>
+    <td>${o.pickerName}</td>
+    <td>${shiftBadge(o.shift)}</td>
+    <td>${o.date}</td>
+    <td>${fmtTime(o.startTs)}</td>
+    <td>${o.lines||'—'}</td>
+    <td>${o._sc>0?`<span class="badge bg-red">${o._sc}</span>`:'<span class="badge bg-gray">None</span>'}</td>
+    <td>${statusBadgeOrder(o.status)}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-ghost btn-xs" onclick="openEditOrder('${o.id}')">✏️</button>
+      <button class="btn btn-danger btn-xs" style="margin-left:3px" onclick="initiateDeleteOrder('${o.id}','${o.orderNum.replace(/'/g,"\\'")}','${o.pickerName.replace(/'/g,"\\'")}')">🗑️</button>
+    </td>
+  </tr>`).join('');
 };
 
 // ── EDIT ORDER ───────────────────────────────────────
@@ -1266,23 +1320,27 @@ window.renderDashboard=function(){
     }
   });
   SHORTAGES.forEach(s=>{const o=ORDERS.find(x=>x.id===s.orderId);if(o&&pm[o.pickerName])pm[o.pickerName].shorts+=s.qty;});
-  document.getElementById('dashPickerBody').innerHTML=Object.entries(pm).sort((a,b)=>b[1].lines-a[1].lines).map(([n,d])=>{
-    const avgL=d.orders>0?(d.lines/d.orders).toFixed(1):'—';
-    // Lines/hr: sum actual durations of completed orders only, with break deduction
-    const BREAK_MS=50*60*1000;
-    let pickMs=0;
-    d.starts.forEach((_,i)=>{if(d.ends[i])pickMs+=(d.ends[i]-d.starts[i]);});
-    // Simpler: use parallel arrays - just sum (end-start) for each matched pair
-    // Actually d.starts/ends are pushed together so zip them
+  // Build flat array with computed lph for sorting
+  const BREAK_MS2=50*60*1000;
+  const pickerRows=Object.entries(pm).map(([n,d])=>{
+    const avgL=d.orders>0?(d.lines/d.orders):0;
     const pairs=Math.min(d.starts.length,d.ends.length);
-    pickMs=0;
-    const sortedStarts=d.starts.slice().sort((a,b)=>a-b);
-    const sortedEnds=d.ends.slice().sort((a,b)=>a-b);
-    for(let i=0;i<pairs;i++) pickMs+=(sortedEnds[i]-sortedStarts[i]);
-    if(pickMs>3*3600000) pickMs=Math.max(pickMs-BREAK_MS,pickMs*0.7);
+    const sS=d.starts.slice().sort((a,b)=>a-b),sE=d.ends.slice().sort((a,b)=>a-b);
+    let pickMs=0;for(let i=0;i<pairs;i++)pickMs+=(sE[i]-sS[i]);
+    if(pickMs>3*3600000)pickMs=Math.max(pickMs-BREAK_MS2,pickMs*0.7);
+    const lphVal=(d.orders>=2||pickMs>=30*60000)&&d.lines>0?(d.lines/(pickMs/3600000)):null;
     const avgT=d.orders>0&&pickMs>0?fmtDur(pickMs/d.orders):'—';
-    const lph=(d.orders>=2||pickMs>=30*60000)&&d.lines>0?(d.lines/(pickMs/3600000)).toFixed(1):'—';
-    return`<tr><td><strong>${n}</strong></td><td>${shiftBadge(d.shift)}</td><td>${d.orders}</td><td><strong>${d.lines}</strong></td><td>${avgL}</td><td>${avgT}</td><td><strong>${lph}</strong></td><td>${d.shorts>0?`<span class="badge bg-amber">${d.shorts}</span>`:'—'}</td></tr>`;
+    return{name:n,shift:d.shift,orders:d.orders,lines:d.lines,avgL,avgT,lph:lphVal,shorts:d.shorts};
+  });
+  const {col:dc,dir:dd}=SORT.dashboard;
+  const colMapD={name:'name',shift:'shift',orders:'orders',lines:'lines',avgL:'avgL',lph:'lph',shorts:'shorts'};
+  const sorted=sortData(pickerRows,colMapD[dc]||'lines',dd);
+  const th2=(c,l)=>thSort('dashboard',c,l,dc,dd);
+  const dhead=document.getElementById('dashPickerHead');
+  if(dhead)dhead.innerHTML=`<tr>${th2('name','Picker')}${th2('shift','Shift')}${th2('orders','Orders')}${th2('lines','Total Lines')}${th2('avgL','Avg Lines/Order')}<th>Avg Time/Order</th>${th2('lph','Lines/Hr')}${th2('shorts','Shortages')}</tr>`;
+  document.getElementById('dashPickerBody').innerHTML=sorted.map(d=>{
+    const lphStr=d.lph?d.lph.toFixed(1):'—';
+    return`<tr><td><strong>${d.name}</strong></td><td>${shiftBadge(d.shift)}</td><td>${d.orders}</td><td><strong>${d.lines}</strong></td><td>${d.avgL.toFixed(1)}</td><td>${d.avgT}</td><td><strong>${lphStr}</strong></td><td>${d.shorts>0?`<span class="badge bg-amber">${d.shorts}</span>`:'—'}</td></tr>`;
   }).join('')||'<tr><td colspan="8" class="text-c text-muted" style="padding:22px">No data</td></tr>';
 };
 
@@ -1564,8 +1622,20 @@ window.renderDivisions=function(){
 
 // ── BACK ORDERS ──────────────────────────────────────
 function renderBackorder(){
-  const list=ORDERS.filter(o=>o.status==='backorder').sort((a,b)=>b.startTs-a.startTs);
+  const {col,dir}=SORT.backorder;
+  const q=(document.getElementById('boSearch')?.value||'').toLowerCase();
+  const sf=document.getElementById('boShiftF')?.value||'';
+  const dv=document.getElementById('boDivF')?.value||'';
+  let list=ORDERS.filter(o=>o.status==='backorder');
+  if(q)list=list.filter(o=>o.orderNum.toLowerCase().includes(q)||o.pickerName.toLowerCase().includes(q));
+  if(sf)list=list.filter(o=>o.shift===sf);
+  if(dv)list=list.filter(o=>o.division===dv);
+  list=list.map(o=>({...o,_sc:SHORTAGES.filter(s=>s.orderId===o.id).length}));
+  list=sortData(list,col,dir);
   const body=document.getElementById('backorderBody');
+  const th=(c,l)=>thSort('backorder',c,l,col,dir);
+  const head=document.getElementById('backorderHead');
+  if(head)head.innerHTML=`<tr><th>✓</th>${th('orderNum','Order #')}${th('division','Division')}${th('pickerName','Picker')}${th('shift','Shift')}${th('date','Date')}<th>Shortage Items</th><th>Outcome</th><th>Action</th></tr>`;
   if(!list.length){body.innerHTML='<tr><td colspan="9" class="text-c text-muted" style="padding:28px">No back orders 🎉</td></tr>';return;}
   body.innerHTML=list.map(o=>{
     const shorts=SHORTAGES.filter(s=>s.orderId===o.id);
@@ -1624,15 +1694,38 @@ window.renderShortages=function(){
     <div class="stat-card c-green"><div class="stat-label">Located</div><div class="stat-value">${located}</div><div class="stat-sub">found in warehouse</div></div>
     <div class="stat-card c-purple"><div class="stat-label">Back Ordered</div><div class="stat-value">${bo}</div><div class="stat-sub">ordered from supplier</div></div>
   `;
-  // Grouped
+
+  // ── GROUPED TABLE ──
   const grouped={};
-  allS.forEach(s=>{const key=`${s.product}|${s.bin}`;if(!grouped[key])grouped[key]={product:s.product,bin:s.bin,totalQty:0,orders:new Set(),division:s.division,lastDate:s.date,resolution:'pending',ids:[]};grouped[key].totalQty+=s.qty;grouped[key].orders.add(s.orderId);grouped[key].ids.push(s.id);if(s.date>grouped[key].lastDate)grouped[key].lastDate=s.date;if(s.resolution!=='pending')grouped[key].resolution=s.resolution;});
-  document.getElementById('shortGroupBody').innerHTML=Object.values(grouped).sort((a,b)=>b.totalQty-a.totalQty).map(g=>{
+  allS.forEach(s=>{
+    const key=`${s.product}|${s.bin}`;
+    if(!grouped[key])grouped[key]={product:s.product,bin:s.bin,totalQty:0,ordersSet:new Set(),division:s.division,lastDate:s.date,resolution:'pending',ids:[]};
+    grouped[key].totalQty+=s.qty;
+    grouped[key].ordersSet.add(s.orderId);
+    grouped[key].ids.push(s.id);
+    if(s.date>grouped[key].lastDate)grouped[key].lastDate=s.date;
+    if(s.resolution!=='pending')grouped[key].resolution=s.resolution;
+  });
+  let groupedArr=Object.values(grouped).map(g=>({...g,ordersAffected:g.ordersSet.size}));
+  const {col:gc,dir:gd}=SORT.shortGroup;
+  const gcMap={product:'product',bin:'bin',totalQty:'totalQty',ordersAffected:'ordersAffected',division:'division',lastDate:'lastDate'};
+  groupedArr=sortData(groupedArr,gcMap[gc]||'totalQty',gd);
+  const thG=(c,l)=>thSort('shortGroup',c,l,gc,gd);
+  const ghead=document.getElementById('shortGroupHead');
+  if(ghead)ghead.innerHTML=`<tr>${thG('product','Product #')}${thG('bin','Bin')}${thG('totalQty','Total Qty Short')}${thG('ordersAffected','Orders Affected')}${thG('division','Division')}<th>Status</th><th>Resolve</th></tr>`;
+  document.getElementById('shortGroupBody').innerHTML=groupedArr.map(g=>{
     const resBadge=g.resolution==='located'?'<span class="badge bg-green">✅ Located</span>':g.resolution==='backorder'?'<span class="badge bg-amber">📦 Back Ordered</span>':'<span class="badge bg-gray">⏳ Pending</span>';
-    return`<tr><td class="mono bold">${g.product}</td><td class="mono">${g.bin||'—'}</td><td><strong style="color:var(--red)">${g.totalQty}</strong></td><td>${g.orders.size}</td><td>${divBadge(g.division)}</td><td>${resBadge}</td><td><button class="btn btn-ghost btn-xs" onclick="openResolveModal('${g.ids[0]}','${g.product}','${g.bin}',${g.totalQty})">Resolve</button></td></tr>`;
+    return`<tr><td class="mono bold">${g.product}</td><td class="mono">${g.bin||'—'}</td><td><strong style="color:var(--red)">${g.totalQty}</strong></td><td>${g.ordersAffected}</td><td>${divBadge(g.division)}</td><td>${resBadge}</td><td><button class="btn btn-ghost btn-xs" onclick="openResolveModal('${g.ids[0]}','${g.product}','${g.bin}',${g.totalQty})">Resolve</button></td></tr>`;
   }).join('')||'<tr><td colspan="7" class="text-c text-muted" style="padding:22px">No shortages</td></tr>';
-  // Detail
-  document.getElementById('shortDetailBody').innerHTML=allS.sort((a,b)=>b.startTs-a.startTs).map(s=>{
+
+  // ── DETAIL TABLE ──
+  const {col:dc,dir:dd}=SORT.shortDetail;
+  const dcMap={orderNum:'orderNum',division:'division',product:'product',bin:'bin',qty:'qty',date:'date',pickerName:'pickerName',resolution:'resolution'};
+  const detailArr=sortData(allS.slice(),dcMap[dc]||'startTs',dd);
+  const thD=(c,l)=>thSort('shortDetail',c,l,dc,dd);
+  const dhead=document.getElementById('shortDetailHead');
+  if(dhead)dhead.innerHTML=`<tr>${thD('orderNum','Order #')}${thD('division','Division')}${thD('product','Product #')}${thD('bin','Bin')}${thD('qty','Qty Short')}${thD('date','Date')}${thD('pickerName','Picker')}${thD('resolution','Status')}<th>Notes</th></tr>`;
+  document.getElementById('shortDetailBody').innerHTML=detailArr.map(s=>{
     const resBadge=s.resolution==='located'?'<span class="badge bg-green">Located</span>':s.resolution==='backorder'?'<span class="badge bg-amber">B/O</span>':'<span class="badge bg-gray">Pending</span>';
     return`<tr><td class="mono">${s.orderNum}</td><td>${divBadge(s.division)}</td><td class="mono bold">${s.product}</td><td class="mono">${s.bin||'—'}</td><td>${s.qty}</td><td>${s.date}</td><td>${s.pickerName}</td><td>${resBadge}</td><td class="text-xs text-muted">${s.notes||'—'}</td></tr>`;
   }).join('')||'<tr><td colspan="9" class="text-c text-muted" style="padding:22px">No shortages</td></tr>';
@@ -1713,10 +1806,16 @@ window.downloadWmsFile=function(){
 // ── OPEN > 24H ───────────────────────────────────────
 function renderOpen24(){
   const now=Date.now();
-  const list=ORDERS.filter(o=>o.status==='open'&&(now-o.startTs)>86400000);
+  const {col,dir}=SORT.open24;
+  let list=ORDERS.filter(o=>o.status==='open'&&(now-o.startTs)>86400000);
+  list=list.map(o=>({...o,hoursOpen:(now-o.startTs)/3600000}));
+  list=sortData(list,col==='hoursOpen'?'hoursOpen':col,dir);
+  const th3=(c,l)=>thSort('open24',c,l,col,dir);
+  const head=document.getElementById('open24Head');
+  if(head)head.innerHTML=`<tr>${th3('orderNum','Order #')}${th3('division','Division')}${th3('pickerName','Picker')}${th3('shift','Shift')}${th3('date','Date')}${th3('startTs','Start')}${th3('lines','Lines')}${th3('hoursOpen','Hours Open')}</tr>`;
   const body=document.getElementById('open24Body');
   if(!list.length){body.innerHTML='<tr><td colspan="8" class="text-c text-muted" style="padding:28px">No orders open longer than 24 hours 🎉</td></tr>';return;}
-  body.innerHTML=list.map(o=>`<tr><td class="mono">${o.orderNum}</td><td>${divBadge(o.division)}</td><td>${o.pickerName}</td><td>${shiftBadge(o.shift)}</td><td>${o.date}</td><td>${fmtTime(o.startTs)}</td><td>${o.lines||'—'}</td><td><strong style="color:var(--red)">${((now-o.startTs)/3600000).toFixed(1)} hrs</strong></td></tr>`).join('');
+  body.innerHTML=list.map(o=>`<tr><td class="mono">${o.orderNum}</td><td>${divBadge(o.division)}</td><td>${o.pickerName}</td><td>${shiftBadge(o.shift)}</td><td>${o.date}</td><td>${fmtTime(o.startTs)}</td><td>${o.lines||'—'}</td><td><strong style="color:var(--red)">${o.hoursOpen.toFixed(1)} hrs</strong></td></tr>`).join('');
 }
 
 // ── ARCHIVE ──────────────────────────────────────────
@@ -1726,42 +1825,52 @@ window.renderArchive=function(){
   const q=(document.getElementById('archSearch')?.value||'').toLowerCase();
   const pk=document.getElementById('archPicker')?.value||'';
   const dv=document.getElementById('archDiv')?.value||'';
+  const st=document.getElementById('archStatus')?.value||'';
   const fr=document.getElementById('archFrom')?.value||'';
   const to=document.getElementById('archTo')?.value||'';
   if(q)list=list.filter(o=>o.orderNum.toLowerCase().includes(q)||o.pickerName.toLowerCase().includes(q)||(DIV[o.division]?.name||'').toLowerCase().includes(q));
   if(pk)list=list.filter(o=>o.pickerName===pk);
   if(dv)list=list.filter(o=>o.division===dv);
+  if(st)list=list.filter(o=>o.status===st);
   if(fr)list=list.filter(o=>o.date>=fr);
   if(to)list=list.filter(o=>o.date<=to);
-  list.sort((a,b)=>(b.endTs||0)-(a.endTs||0));
+  // Add computed fields for sorting
+  list=list.map(o=>({...o,
+    _duration:o.endTs&&o.startTs?(o.endTs-o.startTs):0,
+    _lines:o.pickedLines||o.lines||0,
+    _sc:SHORTAGES.filter(s=>s.orderId===o.id).length
+  }));
+  const {col,dir}=SORT.archive;
+  const colMap={orderNum:'orderNum',division:'division',pickerName:'pickerName',shift:'shift',date:'date',startTs:'startTs',endTs:'endTs',duration:'_duration',lines:'_lines',shortages:'_sc',status:'status'};
+  list=sortData(list,colMap[col]||col,dir);
   document.getElementById('archCount').textContent=`${list.length} record${list.length!==1?'s':''} found`;
   const total=Math.ceil(list.length/PG);archPage=Math.min(archPage,Math.max(0,total-1));
-  document.getElementById('archBody').innerHTML=list.slice(archPage*PG,(archPage+1)*PG).map(o=>{
-    const sc=SHORTAGES.filter(s=>s.orderId===o.id).length;
-    return`<tr>
-      <td class="mono">${o.orderNum}</td>
-      <td>${divBadge(o.division)}</td>
-      <td>${o.pickerName}</td>
-      <td>${shiftBadge(o.shift)}</td>
-      <td>${o.date}</td>
-      <td>${fmtTime(o.startTs)}</td>
-      <td>${fmtTime(o.endTs)}</td>
-      <td>${o.endTs&&o.startTs?fmtDur(o.endTs-o.startTs):'—'}</td>
-      <td>${o.pickedLines||o.lines||'—'}</td>
-      <td>${sc>0?`<span class="badge bg-amber">${sc}</span>`:'—'}</td>
-      <td>${statusBadgeOrder(o.status)}</td>
-      <td style="white-space:nowrap">
-        <button class="btn btn-ghost btn-xs" onclick="openEditOrder('${o.id}')">✏️ Edit</button>
-        <button class="btn btn-danger btn-xs" style="margin-left:4px" onclick="initiateDeleteOrder('${o.id}','${o.orderNum.replace(/'/g,"\\'")}','${o.pickerName.replace(/'/g,"\\'")}')">🗑️</button>
-      </td>
-    </tr>`;
-  }).join('')||'<tr><td colspan="12" class="text-c text-muted" style="padding:28px">No records</td></tr>';
+  const th=(c,l)=>thSort('archive',c,l,col,dir);
+  const head=document.getElementById('archHead');
+  if(head)head.innerHTML=`<tr>${th('orderNum','Order #')}${th('division','Division')}${th('pickerName','Picker')}${th('shift','Shift')}${th('date','Date')}${th('startTs','Start')}${th('endTs','Completed')}${th('duration','Duration')}${th('lines','Lines')}${th('shortages','Shortages')}${th('status','Status')}<th></th></tr>`;
+  document.getElementById('archBody').innerHTML=list.slice(archPage*PG,(archPage+1)*PG).map(o=>`<tr>
+    <td class="mono">${o.orderNum}</td>
+    <td>${divBadge(o.division)}</td>
+    <td>${o.pickerName}</td>
+    <td>${shiftBadge(o.shift)}</td>
+    <td>${o.date}</td>
+    <td>${fmtTime(o.startTs)}</td>
+    <td>${fmtTime(o.endTs)}</td>
+    <td>${o._duration?fmtDur(o._duration):'—'}</td>
+    <td>${o._lines||'—'}</td>
+    <td>${o._sc>0?`<span class="badge bg-amber">${o._sc}</span>`:'—'}</td>
+    <td>${statusBadgeOrder(o.status)}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-ghost btn-xs" onclick="openEditOrder('${o.id}')">✏️</button>
+      <button class="btn btn-danger btn-xs" style="margin-left:3px" onclick="initiateDeleteOrder('${o.id}','${o.orderNum.replace(/'/g,"\\'")}','${o.pickerName.replace(/'/g,"\\'")}')">🗑️</button>
+    </td>
+  </tr>`).join('')||'<tr><td colspan="12" class="text-c text-muted" style="padding:28px">No records</td></tr>';
   const pag=document.getElementById('archPag');
   if(total<=1){pag.innerHTML='';return;}
   pag.innerHTML=`<button class="btn btn-ghost btn-sm" onclick="archGo(${archPage-1})" ${archPage===0?'disabled':''}>← Prev</button><span class="text-xs text-muted">Page ${archPage+1} of ${total}</span><button class="btn btn-ghost btn-sm" onclick="archGo(${archPage+1})" ${archPage===total-1?'disabled':''}>Next →</button>`;
 };
 window.archGo=p=>{archPage=p;renderArchive();};
-window.clearArchFilters=()=>{['archSearch','archFrom','archTo'].forEach(id=>document.getElementById(id).value='');['archPicker','archDiv'].forEach(id=>document.getElementById(id).value='');renderArchive();};
+window.clearArchFilters=()=>{['archSearch','archFrom','archTo'].forEach(id=>document.getElementById(id).value='');['archPicker','archDiv','archStatus'].forEach(id=>document.getElementById(id).value='');renderArchive();};
 
 // ── LOGIN LOG ────────────────────────────────────────
 function renderLoginLog(){
