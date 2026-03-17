@@ -741,23 +741,50 @@ tbody td{padding:8px 11px;font-size:12px}
 </div>
 
 <div class="modal-overlay modal-sm" id="editOrderModal">
-  <div class="modal"><div class="modal-head"><div class="modal-title">✏️ Edit Order Times</div><span class="modal-x" onclick="closeModal('editOrderModal')">×</span></div>
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title">✏️ Edit Order</div><span class="modal-x" onclick="closeModal('editOrderModal')">×</span></div>
     <div class="modal-body">
       <div class="mono bold mb-8" id="editOrderLabel" style="font-size:13px;color:var(--accent)"></div>
+      <div id="editOrderPauseBanner" style="display:none;background:var(--purple-light);border:1px solid var(--purple);border-radius:var(--radius-sm);padding:9px 12px;margin-bottom:12px;font-size:12px;color:var(--purple)"></div>
+
+      <!-- Times & Lines -->
       <div class="form-group">
         <label>Start Date &amp; Time</label>
-        <input type="datetime-local" id="editOrderStart">
+        <input type="datetime-local" id="editOrderStart" onchange="updateEditOrderDuration()">
       </div>
       <div class="form-group" id="editOrderEndGroup">
         <label>Close Date &amp; Time</label>
-        <input type="datetime-local" id="editOrderEnd">
+        <input type="datetime-local" id="editOrderEnd" onchange="updateEditOrderDuration()">
         <div class="text-xs text-muted" style="margin-top:4px">Leave blank to keep order open</div>
       </div>
       <div class="form-group">
-        <label>Lines on Order</label>
+        <label>Total Lines on Order</label>
         <input type="number" id="editOrderLines" min="0" placeholder="# of lines">
       </div>
-      <div id="editOrderDuration" class="text-xs text-muted" style="margin-top:4px"></div>
+      <div id="editOrderDuration" class="text-xs text-muted mb-4"></div>
+
+      <!-- Pause for Next Shift section -->
+      <div id="editOrderPauseSection" style="border-top:1px solid var(--border);padding-top:14px;margin-top:6px">
+        <div style="font-size:12px;font-weight:700;color:var(--purple);margin-bottom:8px">⏸ Pause for Next Shift</div>
+        <div class="text-xs text-muted mb-10">Credit the picker for lines picked today and pause the order. The same picker can resume it tomorrow — time won't count against their next-day KPI until they start again.</div>
+        <div class="form-group">
+          <label>Lines Picked Today <span id="editOrderLinesHint" class="text-xs text-muted"></span></label>
+          <input type="number" id="editOrderLinesDone" min="0" placeholder="How many lines picked so far?" oninput="updatePauseRemaining()">
+        </div>
+        <div id="editOrderPauseRemaining" class="text-xs" style="margin-top:-4px;margin-bottom:10px;color:var(--purple)"></div>
+        <div class="form-group">
+          <label>Pause Date &amp; Time <span class="text-xs text-muted">(when picking stopped)</span></label>
+          <input type="datetime-local" id="editOrderPauseAt">
+        </div>
+        <button class="btn btn-ghost" style="width:100%;border:2px solid var(--purple);color:var(--purple)" onclick="submitPauseFromEdit()">⏸ Pause Order for Next Shift</button>
+      </div>
+
+      <!-- Un-pause section (shown only when paused) -->
+      <div id="editOrderUnpauseSection" style="display:none;border-top:1px solid var(--border);padding-top:14px;margin-top:6px">
+        <div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:8px">▶ Resume / Un-Pause</div>
+        <div class="text-xs text-muted mb-10">Mark this order as open again so the picker can continue today.</div>
+        <button class="btn btn-ghost" style="width:100%;border:2px solid var(--green);color:var(--green)" onclick="submitUnpauseFromEdit()">▶ Resume Order</button>
+      </div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('editOrderModal')">Cancel</button>
@@ -1033,7 +1060,7 @@ function buildNumpad(containerId, handler){
 // ── FIREBASE LISTENERS ────────────────────────────────
 function startListeners(){
   onSnapshot(collection(db,'orders'),snap=>{
-    ORDERS=snap.docs.map(d=>{const x=d.data();return{id:d.id,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,shift:x.shift,date:x.date,startTs:tsMs(x.startTs),endTs:tsMs(x.endTs),status:x.status,lines:x.lines||0,pickedLines:x.pickedLines!==undefined?x.pickedLines:x.lines||0,hasShortage:x.hasShortage||false,backorderDone:x.backorderDone||false,pausedBy:x.pausedBy||null,pausedNote:x.pausedNote||null,pausedLinesRemaining:x.pausedLinesRemaining??null,handoffTo:x.handoffTo||null,resumedFromPause:x.resumedFromPause||false,canceledBy:x.canceledBy||null}});
+    ORDERS=snap.docs.map(d=>{const x=d.data();return{id:d.id,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,shift:x.shift,date:x.date,startTs:tsMs(x.startTs),endTs:tsMs(x.endTs),status:x.status,lines:x.lines||0,pickedLines:x.pickedLines!==undefined?x.pickedLines:x.lines||0,hasShortage:x.hasShortage||false,backorderDone:x.backorderDone||false,pausedBy:x.pausedBy||null,pausedAt:tsMs(x.pausedAt)||null,pausedNote:x.pausedNote||null,pausedLinesRemaining:x.pausedLinesRemaining??null,handoffTo:x.handoffTo||null,resumedFromPause:x.resumedFromPause||false,canceledBy:x.canceledBy||null}});
     renderTodayFeed();updateBadges();
     const pg=activePage();
     if(pg==='dashboard')renderDashboard();if(pg==='open-orders')renderOpenOrders();if(pg==='divisions')renderDivisions();if(pg==='open24')renderOpen24();if(pg==='archive')renderArchive();if(pg==='backorder')renderBackorder();
@@ -1473,15 +1500,46 @@ function datetimeLocalToTs(str){
 window.openEditOrder=function(orderId){
   const o=ORDERS.find(x=>x.id===orderId);
   if(!o)return;
+  const isPaused=o.status==='paused';
   document.getElementById('editOrderModal').dataset.orderId=orderId;
   document.getElementById('editOrderLabel').textContent=`${o.orderNum} — ${o.pickerName}`;
   document.getElementById('editOrderStart').value=tsToDatetimeLocal(o.startTs);
   document.getElementById('editOrderEnd').value=tsToDatetimeLocal(o.endTs);
   document.getElementById('editOrderLines').value=o.lines||'';
   updateEditOrderDuration();
-  // Show/hide end field label based on status
+
+  // Pause banner for paused orders
+  const banner=document.getElementById('editOrderPauseBanner');
+  if(isPaused&&banner){
+    banner.style.display='block';
+    banner.innerHTML=`⏸ <strong>Order is Paused</strong> — ${o.pausedNote||'Paused for next shift'}${o.pausedBy?` · by ${o.pausedBy}`:''}`;
+  } else if(banner){
+    banner.style.display='none';
+  }
+
+  // Lines hint showing total lines
+  const hint=document.getElementById('editOrderLinesHint');
+  if(hint) hint.textContent=`(${o.lines||0} total on order)`;
+
+  // Pre-fill lines done with what's already set if paused
+  const linesDoneEl=document.getElementById('editOrderLinesDone');
+  if(linesDoneEl) linesDoneEl.value=isPaused?(o.pickedLines||''):'';
+  updatePauseRemaining();
+
+  // Pre-fill pause time — if already paused use existing pausedAt, otherwise default to now
+  const pauseAtEl=document.getElementById('editOrderPauseAt');
+  if(pauseAtEl){
+    const pausedAtTs=o.pausedAt||null;
+    pauseAtEl.value=tsToDatetimeLocal(pausedAtTs||Date.now());
+  }
+
+  // Show/hide pause vs unpause sections
+  document.getElementById('editOrderPauseSection').style.display=isPaused?'none':'block';
+  document.getElementById('editOrderUnpauseSection').style.display=isPaused?'block':'none';
+  // Hide end time section for open orders (not relevant)
   const endGroup=document.getElementById('editOrderEndGroup');
-  if(endGroup)endGroup.style.display='block';
+  if(endGroup) endGroup.style.display=(o.status==='open'||isPaused)?'none':'block';
+
   openModal('editOrderModal');
 };
 
@@ -1498,6 +1556,63 @@ function updateEditOrderDuration(){
     el.textContent='';
   }
 }
+
+window.updatePauseRemaining=function(){
+  const orderId=document.getElementById('editOrderModal').dataset.orderId;
+  const o=ORDERS.find(x=>x.id===orderId);
+  const total=o?.lines||parseInt(document.getElementById('editOrderLines')?.value)||0;
+  const done=parseInt(document.getElementById('editOrderLinesDone')?.value)||0;
+  const remaining=Math.max(0,total-done);
+  const el=document.getElementById('editOrderPauseRemaining');
+  if(el&&total>0){
+    el.textContent=`${done} lines credited today · ${remaining} line${remaining!==1?'s':''} remaining for next session`;
+    el.style.color=remaining>0?'var(--purple)':'var(--green)';
+  } else if(el){el.textContent='';}
+};
+
+window.submitPauseFromEdit=async function(){
+  const orderId=document.getElementById('editOrderModal').dataset.orderId;
+  if(!orderId)return;
+  const o=ORDERS.find(x=>x.id===orderId);
+  if(!o)return;
+  const linesDone=parseInt(document.getElementById('editOrderLinesDone').value);
+  if(isNaN(linesDone)||linesDone<0){alert('Enter the number of lines picked today.');return;}
+  const total=o.lines||0;
+  const remaining=Math.max(0,total-linesDone);
+  const pauseAtStr=document.getElementById('editOrderPauseAt').value;
+  const pauseAt=pauseAtStr?datetimeLocalToTs(pauseAtStr):Date.now();
+  const btn=document.getElementById('editOrderSaveBtn');btn.disabled=true;
+  try{
+    await updateDoc(doc(db,'orders',orderId),{
+      status:'paused',
+      pickedLines:linesDone,
+      pausedAt:pauseAt,
+      pausedBy:o.pickerName,
+      pausedLinesRemaining:remaining,
+      pausedNote:`Picked ${linesDone} of ${total} lines. ${remaining} remaining for next session.`
+    });
+    closeModal('editOrderModal');
+  }catch(e){alert('Error: '+e.message);}
+  finally{btn.disabled=false;}
+};
+
+window.submitUnpauseFromEdit=async function(){
+  const orderId=document.getElementById('editOrderModal').dataset.orderId;
+  if(!orderId)return;
+  const btn=document.getElementById('editOrderSaveBtn');btn.disabled=true;
+  try{
+    // Resume: clear pause state, set back to open with a fresh startTs for today
+    await updateDoc(doc(db,'orders',orderId),{
+      status:'open',
+      startTs:Date.now(),
+      pausedAt:null,
+      pausedNote:null,
+      pausedLinesRemaining:null
+    });
+    closeModal('editOrderModal');
+  }catch(e){alert('Error: '+e.message);}
+  finally{btn.disabled=false;}
+};
 
 // Live duration preview as user types
 document.addEventListener('change',function(e){
@@ -1518,14 +1633,18 @@ window.saveEditOrder=async function(){
     const update={startTs,lines};
     if(endTs){
       update.endTs=endTs;
-      // Keep existing status unless it was open — then close it
-      if(o&&o.status==='open') update.status='closed';
-      // Recalc pickedLines if no shortages
+      if(o&&(o.status==='open'||o.status==='paused')) update.status='closed';
       const hasShortages=SHORTAGES.some(s=>s.orderId===orderId);
       if(!hasShortages) update.pickedLines=lines;
     } else {
       update.endTs=null;
-      if(o&&o.status!=='backorder') update.status='open';
+      // Don't change status if paused — let submitUnpauseFromEdit handle that
+      if(o&&o.status==='open') update.status='open';
+    }
+    // If paused and pause time was changed, update it too
+    if(o&&o.status==='paused'){
+      const pauseAtStr=document.getElementById('editOrderPauseAt')?.value;
+      if(pauseAtStr) update.pausedAt=datetimeLocalToTs(pauseAtStr);
     }
     await updateDoc(doc(db,'orders',orderId),update);
     closeModal('editOrderModal');
