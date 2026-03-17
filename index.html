@@ -218,6 +218,7 @@ tbody td{padding:8px 11px;font-size:12px}
           <datalist id="pickerList"></datalist>
         </div>
         <button class="btn btn-primary btn-lg" style="width:100%" id="submitBtn" onclick="processOrder()">✅ Submit</button>
+        <button class="btn btn-ghost" style="width:100%;margin-top:6px" id="handoffBtn" onclick="openHandoffModal()">⏸ Pause / Hand Off Order</button>
         <div id="scanResult" class="scan-result"></div>
       </div>
     </div>
@@ -307,7 +308,7 @@ tbody td{padding:8px 11px;font-size:12px}
       <input type="text" id="openProductSearch" placeholder="🔍 Product # on shortage…" oninput="renderOpenOrders()" style="width:210px">
       <select id="openShiftF" onchange="renderOpenOrders()" class="w-auto"><option value="">All Shifts</option><option value="1st">1st</option><option value="2nd">2nd</option></select>
       <select id="openDivF" onchange="renderOpenOrders()" class="w-auto" style="min-width:110px"><option value="">All Divisions</option><option value="GT">TAG</option><option value="NH">NAPA</option><option value="FS">Forside</option><option value="EE">Ever Ellis</option><option value="BC">Beachcombers</option><option value="VP">VIP</option><option value="TP">Transpac</option></select>
-      <select id="openStatusF" onchange="renderOpenOrders()" class="w-auto"><option value="">Open &amp; Back Orders</option><option value="open">● Open Only</option><option value="backorder">🔄 Back Orders Only</option></select>
+      <select id="openStatusF" onchange="renderOpenOrders()" class="w-auto"><option value="">Open, Paused &amp; Back Orders</option><option value="open">● Open Only</option><option value="paused">⏸ Paused Only</option><option value="backorder">🔄 Back Orders Only</option></select>
     </div>
   </div>
   <div class="card"><div class="card-body" style="padding:0">
@@ -473,7 +474,7 @@ tbody td{padding:8px 11px;font-size:12px}
         <option value="">All Divisions</option><option value="GT">TAG (GT)</option><option value="NH">NAPA (NH)</option><option value="FS">Forside (FS)</option><option value="EE">Ever Ellis (EE)</option><option value="BC">Beachcombers (BC)</option><option value="VP">VIP (VP)</option><option value="TP">Transpac (TP)</option>
       </select>
       <select id="archStatus" onchange="renderArchive()" class="w-auto" style="min-width:130px">
-        <option value="">All Statuses</option><option value="closed">✓ Completed</option><option value="backorder_done">✓ B/O Done</option><option value="partial_located">⚡ Ship Partial</option><option value="backorder_redrop">🔁 B/O Redrop</option><option value="order_canceled">✕ Canceled</option>
+        <option value="">All Statuses</option><option value="closed">✓ Completed</option><option value="backorder_done">✓ B/O Done</option><option value="partial_located">⚡ Ship Partial</option><option value="backorder_redrop">🔁 B/O Redrop</option><option value="order_canceled">✕ Canceled</option><option value="handoff_done">🤝 Handed Off</option>
       </select>
       <input type="date" id="archFrom" onchange="renderArchive()" style="width:auto"><input type="date" id="archTo" onchange="renderArchive()" style="width:auto">
       <button class="btn btn-ghost btn-sm" onclick="clearArchFilters()">Clear</button>
@@ -569,6 +570,47 @@ tbody td{padding:8px 11px;font-size:12px}
 </div><!-- /mainApp -->
 
 <!-- ═══ MODALS ═══ -->
+<div class="modal-overlay modal-sm" id="handoffModal">
+  <div class="modal"><div class="modal-head"><div class="modal-title">⏸ Pause / Hand Off Order</div><span class="modal-x" onclick="closeModal('handoffModal')">×</span></div>
+    <div class="modal-body">
+      <div class="alert alert-amber mb-12" id="handoffOrderInfo"></div>
+      <div class="form-group">
+        <label>Lines picked so far by current picker</label>
+        <input type="number" id="handoffLinesDone" placeholder="How many lines did they pick?" min="0">
+        <div class="text-xs text-muted mt-4">The current picker gets credit for this many lines. The remaining lines carry forward.</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
+        <button class="btn btn-ghost" style="padding:14px;font-size:13px;border:2px solid var(--purple);color:var(--purple);flex-direction:column;gap:4px;height:auto" onclick="submitHandoff('pause')">
+          <span style="font-size:22px">⏸</span>
+          <strong>Pause Order</strong>
+          <span style="font-size:11px;opacity:.8">Credit current picker, mark paused for next shift</span>
+        </button>
+        <button class="btn btn-ghost" style="padding:14px;font-size:13px;border:2px solid var(--accent);color:var(--accent);flex-direction:column;gap:4px;height:auto" onclick="showHandoffAssign()">
+          <span style="font-size:22px">🤝</span>
+          <strong>Hand Off Now</strong>
+          <span style="font-size:11px;opacity:.8">Credit current picker, assign to new picker immediately</span>
+        </button>
+      </div>
+      <div id="handoffAssignSection" style="display:none;margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+        <div class="text-xs bold text-muted mb-8">ASSIGN TO NEW PICKER</div>
+        <div class="form-group">
+          <label>New Picker</label>
+          <div style="position:relative">
+            <input type="text" id="handoffNewPicker" placeholder="Select or type name…" autocomplete="off" oninput="filterHandoffDropdown()" onfocus="showHandoffDropdown()" onblur="hideHandoffDropdownDelayed()">
+            <div id="handoffPickerDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);z-index:300;max-height:180px;overflow-y:auto;margin-top:2px"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>New Picker's Shift</label>
+          <select id="handoffNewShift"><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="submitHandoff('handoff')">🤝 Complete Hand Off</button>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('handoffModal')">Cancel</button></div>
+  </div>
+</div>
+
 <div class="modal-overlay modal-sm" id="confirmPickerModal">
   <div class="modal"><div class="modal-head"><div class="modal-title">Confirm Picker</div><span class="modal-x" onclick="closeModal('confirmPickerModal')">×</span></div>
     <div class="modal-body text-c">
@@ -816,7 +858,7 @@ const moStart  = ()=>{const d=new Date();d.setDate(1);d.setHours(0,0,0,0);return
 function byPeriod(arr,p){if(p==='today')return arr.filter(o=>o.date===todayStr());if(p==='week')return arr.filter(o=>o.startTs>=wkStart());if(p==='month')return arr.filter(o=>o.startTs>=moStart());return arr}
 function divBadge(code){if(!code)return'<span class="badge bg-gray">—</span>';return`<span class="badge ${DIV_BADGE[code]||'bg-gray'}">${DIV[code]?.name||code}</span>`}
 function shiftBadge(s){return`<span class="badge ${s==='1st'?'bg-blue':'bg-purple'}">${s}</span>`}
-function statusBadgeOrder(s){const m={open:'<span class="badge bg-blue">● Open</span>',closed:'<span class="badge bg-green">✓ Done</span>',backorder:'<span class="badge bg-amber">🔄 Back Order</span>',backorder_done:'<span class="badge bg-teal">✓ B/O Done</span>',partial_located:'<span class="badge bg-orange">⚡ Ship Partial</span>',backorder_redrop:'<span class="badge bg-purple">🔁 B/O Redrop</span>',order_canceled:'<span class="badge bg-red">✕ Canceled</span>',ship_incomplete:'<span class="badge bg-red">✕ Canceled</span>'};return m[s]||'<span class="badge bg-gray">—</span>'}
+function statusBadgeOrder(s){const m={open:'<span class="badge bg-blue">● Open</span>',paused:'<span class="badge bg-purple">⏸ Paused</span>',handoff_done:'<span class="badge bg-teal">🤝 Handed Off</span>',closed:'<span class="badge bg-green">✓ Done</span>',backorder:'<span class="badge bg-amber">🔄 Back Order</span>',backorder_done:'<span class="badge bg-teal">✓ B/O Done</span>',partial_located:'<span class="badge bg-orange">⚡ Ship Partial</span>',backorder_redrop:'<span class="badge bg-purple">🔁 B/O Redrop</span>',order_canceled:'<span class="badge bg-red">✕ Canceled</span>',ship_incomplete:'<span class="badge bg-red">✕ Canceled</span>'};return m[s]||'<span class="badge bg-gray">—</span>'}
 
 // ── LOGIN SYSTEM ─────────────────────────────────────
 // One universal login PIN for everyone.
@@ -991,7 +1033,7 @@ function buildNumpad(containerId, handler){
 // ── FIREBASE LISTENERS ────────────────────────────────
 function startListeners(){
   onSnapshot(collection(db,'orders'),snap=>{
-    ORDERS=snap.docs.map(d=>{const x=d.data();return{id:d.id,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,shift:x.shift,date:x.date,startTs:tsMs(x.startTs),endTs:tsMs(x.endTs),status:x.status,lines:x.lines||0,pickedLines:x.pickedLines!==undefined?x.pickedLines:x.lines||0,hasShortage:x.hasShortage||false,backorderDone:x.backorderDone||false}});
+    ORDERS=snap.docs.map(d=>{const x=d.data();return{id:d.id,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,shift:x.shift,date:x.date,startTs:tsMs(x.startTs),endTs:tsMs(x.endTs),status:x.status,lines:x.lines||0,pickedLines:x.pickedLines!==undefined?x.pickedLines:x.lines||0,hasShortage:x.hasShortage||false,backorderDone:x.backorderDone||false,pausedBy:x.pausedBy||null,pausedNote:x.pausedNote||null,pausedLinesRemaining:x.pausedLinesRemaining??null,handoffTo:x.handoffTo||null,resumedFromPause:x.resumedFromPause||false,canceledBy:x.canceledBy||null}});
     renderTodayFeed();updateBadges();
     const pg=activePage();
     if(pg==='dashboard')renderDashboard();if(pg==='open-orders')renderOpenOrders();if(pg==='divisions')renderDivisions();if(pg==='open24')renderOpen24();if(pg==='archive')renderArchive();if(pg==='backorder')renderBackorder();
@@ -1052,16 +1094,31 @@ async function doSubmit({orderNum,lines,pickerName,shift}){
     const openOrd=ORDERS.find(o=>o.orderNum===orderNum&&o.pickerName.toLowerCase()===norm&&o.status==='open');
     if(openOrd){
       if(openOrd.date!==todayStr()){
-        // Cross-day order: opened on a previous day — offer to close it now
-        // Update the order's date to today and treat as normal second scan → shortage prompt
         await updateDoc(doc(db,'orders',openOrd.id),{date:todayStr(),resumedAt:now,resumedNote:`Resumed from ${openOrd.date}`});
-        const updatedOrd={...openOrd,date:todayStr()};
         showSR('sr-open','📋 Order Resumed',`${orderNum} was started on ${openOrd.date} and is now being completed. Scan again to close.`);
-        clearScanForm();
-        return;
+        clearScanForm();return;
       }
-      // Same-day second scan → prompt shortage
-      showShortageModal(openOrd,now);
+      showShortageModal(openOrd,now);return;
+    }
+
+    // Check if this order is PAUSED — offer to pick it up
+    const pausedOrd=ORDERS.find(o=>o.orderNum===orderNum&&o.status==='paused');
+    if(pausedOrd){
+      const pausedBy=pausedOrd.pausedBy||pausedOrd.pickerName;
+      const linesLeft=pausedOrd.pausedLinesRemaining||pausedOrd.lines||0;
+      if(confirm(`⏸ ${orderNum} was paused by ${pausedBy}.\n\n${linesLeft} line${linesLeft!==1?'s':''} remaining.\n\nPick up this order as ${pickerName}?`)){
+        // Create new order doc for this picker picking up where it was paused
+        await addDoc(collection(db,'orders'),{
+          orderNum,division,pickerName,shift,date:todayStr(),startTs:now,endTs:null,
+          status:'open',lines:linesLeft,pickedLines:linesLeft,
+          hasShortage:false,backorderDone:false,
+          resumedFromPause:true,originalOrderId:pausedOrd.id,pausedBy
+        });
+        // Mark the paused order as handed off (archived from active tracking)
+        await updateDoc(doc(db,'orders',pausedOrd.id),{status:'handoff_done',handoffTo:pickerName,handoffAt:now});
+        showSR('sr-open','🤝 Order Picked Up',`${orderNum} resumed by ${pickerName} — ${linesLeft} lines remaining. Scan again to close.`);
+        clearScanForm();
+      }else{clearScanForm();}
       return;
     }
 
@@ -1097,6 +1154,122 @@ async function doSubmit({orderNum,lines,pickerName,shift}){
   }catch(e){showSR('sr-error','🔴 Firebase Error',e.message);}
   finally{busy=false;document.getElementById('submitBtn').disabled=false;}
 }
+
+// ── ORDER HANDOFF / PAUSE ─────────────────────────────
+let _handoffOrderId=null;
+
+window.openHandoffModal=function(){
+  const orderRaw=document.getElementById('scanOrder').value.trim().toUpperCase();
+  const pickerRaw=document.getElementById('scanPicker').value.trim();
+  if(!orderRaw||!pickerRaw){
+    showSR('sr-warn','⚠️ Missing Info','Enter the order number and current picker name first.');return;
+  }
+  // Find their open order
+  const norm=pickerRaw.toLowerCase();
+  const openOrd=ORDERS.find(o=>o.orderNum===orderRaw&&o.pickerName.toLowerCase()===norm&&o.status==='open');
+  if(!openOrd){
+    showSR('sr-warn','⚠️ No Open Order',`${orderRaw} is not currently open for ${pickerRaw}.`);return;
+  }
+  _handoffOrderId=openOrd.id;
+  const totalLines=openOrd.lines||0;
+  document.getElementById('handoffOrderInfo').innerHTML=
+    `<strong>${orderRaw}</strong> — ${pickerRaw} · ${totalLines} total lines · Started ${fmtTime(openOrd.startTs)}`;
+  document.getElementById('handoffLinesDone').value='';
+  document.getElementById('handoffLinesDone').max=totalLines;
+  document.getElementById('handoffAssignSection').style.display='none';
+  document.getElementById('handoffNewPicker').value='';
+  openModal('handoffModal');
+};
+
+window.showHandoffAssign=function(){
+  document.getElementById('handoffAssignSection').style.display='block';
+  // Pre-set new shift to opposite of current
+  const curShift=document.getElementById('scanShift').value;
+  document.getElementById('handoffNewShift').value=curShift==='1st'?'2nd':'1st';
+};
+
+window.submitHandoff=async function(mode){
+  const orderId=_handoffOrderId;
+  if(!orderId)return;
+  const order=ORDERS.find(o=>o.id===orderId);
+  if(!order)return;
+  const linesDone=parseInt(document.getElementById('handoffLinesDone').value)||0;
+  const totalLines=order.lines||0;
+  const linesRemaining=Math.max(0,totalLines-linesDone);
+  const now=Date.now();
+
+  if(mode==='handoff'){
+    const newPicker=document.getElementById('handoffNewPicker').value.trim();
+    const newShift=document.getElementById('handoffNewShift').value;
+    if(!newPicker){alert('Enter the new picker\'s name.');return;}
+
+    // Credit current picker for their lines and pause
+    await updateDoc(doc(db,'orders',orderId),{
+      status:'paused',
+      pausedAt:now,
+      pausedBy:order.pickerName,
+      pickedLines:linesDone,
+      pausedLinesRemaining:linesRemaining,
+      pausedNote:`Picked ${linesDone} of ${totalLines} lines. ${linesRemaining} remaining.`
+    });
+    // Create new order for the new picker with remaining lines
+    const division=divCode(order.orderNum);
+    await addDoc(collection(db,'orders'),{
+      orderNum:order.orderNum,division,pickerName:newPicker,shift:newShift,
+      date:todayStr(),startTs:now,endTs:null,
+      status:'open',lines:linesRemaining,pickedLines:linesRemaining,
+      hasShortage:false,backorderDone:false,
+      resumedFromPause:true,originalOrderId:orderId,pausedBy:order.pickerName
+    });
+    // Mark original as handed off
+    await updateDoc(doc(db,'orders',orderId),{status:'handoff_done',handoffTo:newPicker,handoffAt:now});
+    // Upsert new picker record
+    const ep=PICKERS.find(p=>p.name.toLowerCase()===newPicker.toLowerCase());
+    if(!ep)await addDoc(collection(db,'pickers'),{name:newPicker,shift:newShift,addedTs:now,lastActiveTs:now,archived:false,deactivated:false});
+
+    closeModal('handoffModal');
+    clearScanForm();
+    showSR('sr-open','🤝 Handed Off',`${order.orderNum}: ${order.pickerName} picked ${linesDone} lines. ${linesRemaining} lines handed to ${newPicker}.`);
+
+  } else {
+    // Pause only — credit picker, mark paused, wait for next shift to scan
+    await updateDoc(doc(db,'orders',orderId),{
+      status:'paused',
+      pausedAt:now,
+      pausedBy:order.pickerName,
+      pickedLines:linesDone,
+      pausedLinesRemaining:linesRemaining,
+      pausedNote:`Picked ${linesDone} of ${totalLines} lines. ${linesRemaining} remaining for next shift.`
+    });
+    closeModal('handoffModal');
+    clearScanForm();
+    showSR('sr-open','⏸ Order Paused',`${order.orderNum} paused — ${order.pickerName} credited ${linesDone} lines. ${linesRemaining} lines ready for next shift.`);
+  }
+  _handoffOrderId=null;
+};
+
+// Handoff picker dropdown (reuses same logic as scan dropdown)
+window.filterHandoffDropdown=function(){renderHandoffDropdownOptions();document.getElementById('handoffPickerDropdown').style.display='block';};
+window.showHandoffDropdown=function(){renderHandoffDropdownOptions();document.getElementById('handoffPickerDropdown').style.display='block';};
+window.hideHandoffDropdownDelayed=function(){setTimeout(()=>{const dd=document.getElementById('handoffPickerDropdown');if(dd)dd.style.display='none';},200);};
+function renderHandoffDropdownOptions(){
+  const dd=document.getElementById('handoffPickerDropdown');if(!dd)return;
+  const q=(document.getElementById('handoffNewPicker')?.value||'').toLowerCase();
+  const shift=document.getElementById('handoffNewShift')?.value||'';
+  const pickers=PICKERS.filter(p=>!p.archived&&!p.deactivated);
+  const match=pickers.filter(p=>(!q||p.name.toLowerCase().includes(q)));
+  if(!match.length){dd.innerHTML='<div style="padding:10px 14px;font-size:12px;color:var(--text3)">Type to create new picker</div>';return;}
+  const same=match.filter(p=>p.shift===shift),other=match.filter(p=>p.shift!==shift);
+  let html='';
+  if(same.length){html+=`<div style="padding:5px 12px 3px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3)">${shift} Shift</div>`;html+=same.map(p=>`<div style="padding:9px 14px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px" class="picker-dd-item" onmousedown="selectHandoffPicker('${p.name.replace(/'/g,"\\'")}','${p.shift}')">${p.shift==='1st'?'🌅':'🌙'} ${p.name}</div>`).join('');}
+  if(other.length){html+=`<div style="padding:5px 12px 3px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3);border-top:1px solid var(--border);margin-top:4px">${shift==='1st'?'2nd':'1st'} Shift</div>`;html+=other.map(p=>`<div style="padding:9px 14px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;opacity:.7" class="picker-dd-item" onmousedown="selectHandoffPicker('${p.name.replace(/'/g,"\\'")}','${p.shift}')">${p.shift==='1st'?'🌅':'🌙'} ${p.name}</div>`).join('');}
+  dd.innerHTML=html;
+}
+window.selectHandoffPicker=function(name,shift){
+  document.getElementById('handoffNewPicker').value=name;
+  document.getElementById('handoffNewShift').value=shift;
+  const dd=document.getElementById('handoffPickerDropdown');if(dd)dd.style.display='none';
+};
 
 // ── SHORTAGE MODAL ───────────────────────────────────
 let shortageTarget=null;
@@ -1245,7 +1418,7 @@ window.renderOpenOrders=function(){
   const dv=document.getElementById('openDivF')?.value||'';
   const stF=document.getElementById('openStatusF')?.value||'';
   const {col,dir}=SORT.openOrders;
-  let list=ORDERS.filter(o=>o.status==='open'||o.status==='backorder');
+  let list=ORDERS.filter(o=>o.status==='open'||o.status==='backorder'||o.status==='paused');
   if(stF)list=list.filter(o=>o.status===stF);
   if(q)list=list.filter(o=>o.orderNum.toLowerCase().includes(q)||o.pickerName.toLowerCase().includes(q)||(DIV[o.division]?.name||'').toLowerCase().includes(q));
   if(sf)list=list.filter(o=>o.shift===sf);
@@ -1264,14 +1437,15 @@ window.renderOpenOrders=function(){
     // If product search active, show matched shortage products under the row
     const matchedShorts=pq?SHORTAGES.filter(s=>s.orderId===o.id&&s.product.toLowerCase().includes(pq)):[];
     const shortDetail=matchedShorts.length?`<div style="margin-top:4px">${matchedShorts.map(s=>`<span class="badge bg-red" style="margin-right:3px;font-size:10px">${s.product} · ${s.qty}</span>`).join('')}</div>`:'';
-    return`<tr>
+    const pauseNote=o.status==='paused'&&o.pausedNote?`<div style="margin-top:3px;font-size:10px;color:var(--purple)">${o.pausedNote}</div>`:'';
+    return`<tr style="${o.status==='paused'?'background:var(--purple-light)':''}">
       <td class="mono bold">${o.orderNum}</td>
       <td>${divBadge(o.division)}</td>
-      <td>${o.pickerName}</td>
+      <td>${o.pickerName}${o.status==='paused'&&o.pausedBy?`<div class="text-xs text-muted">Paused by ${o.pausedBy}</div>`:''}</td>
       <td>${shiftBadge(o.shift)}</td>
       <td>${o.date}</td>
       <td>${fmtTime(o.startTs)}</td>
-      <td>${o.lines||'—'}</td>
+      <td>${o.lines||'—'}${pauseNote}</td>
       <td>${o._sc>0?`<span class="badge bg-red">${o._sc}</span>`:'<span class="badge bg-gray">None</span>'}${shortDetail}</td>
       <td>${statusBadgeOrder(o.status)}</td>
       <td style="white-space:nowrap">
@@ -2390,7 +2564,7 @@ function renderOpen24(){
 // ── ARCHIVE ──────────────────────────────────────────
 let archPage=0; const PG=50;
 window.renderArchive=function(){
-  let list=ORDERS.filter(o=>o.status==='closed'||o.status==='backorder_done'||o.status==='ship_incomplete'||o.status==='order_canceled'||o.status==='partial_located'||o.status==='backorder_redrop');
+  let list=ORDERS.filter(o=>o.status==='closed'||o.status==='backorder_done'||o.status==='ship_incomplete'||o.status==='order_canceled'||o.status==='partial_located'||o.status==='backorder_redrop'||o.status==='handoff_done');
   const q=(document.getElementById('archSearch')?.value||'').toLowerCase();
   const pk=document.getElementById('archPicker')?.value||'';
   const dv=document.getElementById('archDiv')?.value||'';
