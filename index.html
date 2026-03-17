@@ -126,10 +126,15 @@ tbody td{padding:8px 11px;font-size:12px}
     <div class="login-logo">📦</div>
     <div class="login-title">Pick Tracker</div>
     <div class="login-sub">Built by Ruben Mendoza · IC Manager</div>
+    <!-- Step 1: Enter name -->
     <div id="loginStep1">
-      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Select your name to log in:</div>
-      <div id="loginUserList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;max-height:280px;overflow-y:auto"></div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Enter your name to continue:</div>
+      <input type="text" id="loginNameInput" placeholder="Your full name" autocomplete="off" style="margin-bottom:8px;text-align:center;font-size:14px">
+      <div id="loginSavedNames" style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px;max-height:180px;overflow-y:auto"></div>
+      <button class="btn btn-primary" style="width:100%" onclick="proceedToPin()">Continue →</button>
+      <div id="loginStep1Error" style="color:var(--red);font-size:12px;margin-top:6px;min-height:15px"></div>
     </div>
+    <!-- Step 2: Enter PIN -->
     <div id="loginStep2" style="display:none">
       <div id="loginSelectedLabel" style="font-size:15px;font-weight:700;color:var(--accent);margin-bottom:10px"></div>
       <div class="pin-dots" id="ld"><div class="pin-dot" id="ld0"></div><div class="pin-dot" id="ld1"></div><div class="pin-dot" id="ld2"></div><div class="pin-dot" id="ld3"></div></div>
@@ -137,7 +142,6 @@ tbody td{padding:8px 11px;font-size:12px}
       <div id="loginError" class="login-error"></div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px" onclick="loginBack()">← Back</button>
     </div>
-    <div style="margin-top:12px;font-size:10px;color:var(--text3)">Reset any PIN with passphrase: <strong>NYMETS</strong></div>
   </div>
 </div>
 
@@ -339,13 +343,10 @@ tbody td{padding:8px 11px;font-size:12px}
         <label class="toggle"><input type="checkbox" id="darkToggle" onchange="toggleDark()"><span class="toggle-slider"></span></label>
       </div></div>
     </div>
-    <div class="card mb-12"><div class="card-header"><div class="card-title">👥 User Management</div></div>
+    <div class="card mb-12"><div class="card-header"><div class="card-title">👥 Saved Login Names</div></div>
       <div class="card-body">
-        <div class="alert alert-blue mb-10">To change any PIN, first enter the passphrase <strong>NYMETS</strong> when prompted.</div>
-        <div class="form-group"><label>Add New User</label>
-          <div class="flex gap-8"><input type="text" id="newUserName" placeholder="Full Name" style="flex:2"><select id="newUserRole" style="flex:1"><option value="picker">Picker</option><option value="manager">IC Manager</option></select><button class="btn btn-primary btn-sm" onclick="addUser()">Add</button></div>
-        </div>
-        <div id="userListSettings" style="margin-top:10px"></div>
+        <div class="text-xs text-muted mb-10">Names entered at login are saved automatically for quick re-selection. Remove old names here.</div>
+        <div id="userListSettings" style="margin-top:6px"></div>
       </div>
     </div>
     <div class="card mb-12"><div class="card-header"><div class="card-title">🔑 Change PIN</div></div>
@@ -484,21 +485,14 @@ const db    = getFirestore(fbApp);
 // ── CONSTANTS ────────────────────────────────────────
 const DIV = {GT:{name:'TAG',color:'#1d6ef5'},NH:{name:'NAPA',color:'#16a34a'},FS:{name:'Forside',color:'#d97706'},EE:{name:'Ever Ellis',color:'#7c3aed'},BC:{name:'Beachcombers',color:'#0891b2'},VP:{name:'VIP',color:'#db2777'},TP:{name:'Transpac',color:'#ea580c'}};
 const DIV_BADGE = {GT:'bg-blue',NH:'bg-green',FS:'bg-amber',EE:'bg-purple',BC:'bg-teal',VP:'bg-purple',TP:'bg-orange'};
-const PASSPHRASE = 'NYMETS';
+const PASSPHRASE = 'PACERS';
 
-// ── DEFAULT PINS (stored in localStorage, 3 separate) ─
-// Keys: wpt_pin_login, wpt_pin_icm, wpt_pin_reset
-function getPin(k){return localStorage.getItem('wpt_pin_'+k)||({login:'1111',icm:'2222',reset:'3333'}[k])}
+// ── DEFAULT PINS (stored in localStorage) ────────────
+// Login PIN: one PIN for everyone, just enter your name
+// IC Manager PIN: required for WMS export
+// Master Reset PIN: required to clear all data
+function getPin(k){return localStorage.getItem('wpt_pin_'+k)||({login:'1991',icm:'1988',reset:'2018'}[k]||'1234')}
 function setPin(k,v){localStorage.setItem('wpt_pin_'+k,v)}
-
-// ── USERS (stored in localStorage for simplicity) ────
-// [{name, role:'picker'|'manager', initials}]
-function getUsers(){
-  const u=localStorage.getItem('wpt_users');
-  if(u)return JSON.parse(u);
-  return [{name:'IC Manager',role:'manager',initials:'IC'},{name:'General User',role:'picker',initials:'GU'}];
-}
-function saveUsers(u){localStorage.setItem('wpt_users',JSON.stringify(u))}
 
 // ── SESSION ──────────────────────────────────────────
 let currentUser = null;
@@ -521,28 +515,49 @@ function shiftBadge(s){return`<span class="badge ${s==='1st'?'bg-blue':'bg-purpl
 function statusBadgeOrder(s){const m={open:'<span class="badge bg-blue">● Open</span>',closed:'<span class="badge bg-green">✓ Done</span>',backorder:'<span class="badge bg-amber">🔄 Back Order</span>',backorder_done:'<span class="badge bg-teal">✓ B/O Done</span>'};return m[s]||'<span class="badge bg-gray">—</span>'}
 
 // ── LOGIN SYSTEM ─────────────────────────────────────
-let loginPinEntry='', loginTarget=null;
+// One universal login PIN for everyone.
+// Saved names are stored in localStorage for quick re-selection.
+let loginPinEntry='', loginTarget='';
+
+function getSavedNames(){return JSON.parse(localStorage.getItem('wpt_saved_names')||'[]');}
+function saveName(name){const n=name.trim();if(!n)return;const names=getSavedNames();if(!names.find(x=>x.toLowerCase()===n.toLowerCase())){names.unshift(n);localStorage.setItem('wpt_saved_names',JSON.stringify(names.slice(0,20)));}}
 
 function buildLoginScreen(){
-  const users=getUsers();
-  const ul=document.getElementById('loginUserList');
-  ul.innerHTML=users.map(u=>`<button class="user-select-btn" onclick="selectLoginUser('${u.name}')"><span style="font-size:18px">${u.role==='manager'?'🛡️':'👤'}</span><div><div>${u.name}</div><div style="font-size:10px;color:var(--text3)">${u.role==='manager'?'IC Manager':'Picker / Staff'}</div></div></button>`).join('');
+  renderSavedNames();
   buildNumpad('loginNumpad', loginNumpadKey);
+  document.getElementById('loginNameInput').addEventListener('keydown',e=>{if(e.key==='Enter')proceedToPin();});
 }
 
-window.selectLoginUser = function(name){
+function renderSavedNames(){
+  const names=getSavedNames();
+  const el=document.getElementById('loginSavedNames');
+  if(!el)return;
+  if(!names.length){el.innerHTML='';return;}
+  el.innerHTML=`<div style="font-size:10px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Recent</div>`+
+    names.map(n=>`<button class="user-select-btn" onclick="quickSelectName('${n.replace(/'/g,'&#39;')}')">👤 ${n}</button>`).join('');
+}
+
+window.quickSelectName=function(name){
+  document.getElementById('loginNameInput').value=name;
+  proceedToPin();
+};
+
+window.proceedToPin=function(){
+  const name=document.getElementById('loginNameInput').value.trim();
+  if(!name){document.getElementById('loginStep1Error').textContent='Please enter your name.';return;}
+  document.getElementById('loginStep1Error').textContent='';
   loginTarget=name; loginPinEntry='';
-  document.getElementById('loginSelectedLabel').textContent=name;
+  document.getElementById('loginSelectedLabel').textContent='Welcome, '+name;
   document.getElementById('loginStep1').style.display='none';
   document.getElementById('loginStep2').style.display='block';
   updateLoginDots();
   document.getElementById('loginError').textContent='';
 };
 
-window.loginBack = function(){
+window.loginBack=function(){
   document.getElementById('loginStep1').style.display='block';
   document.getElementById('loginStep2').style.display='none';
-  loginPinEntry=''; loginTarget=null;
+  loginPinEntry=''; loginTarget='';
 };
 
 function loginNumpadKey(k){
@@ -552,8 +567,7 @@ function loginNumpadKey(k){
   document.getElementById('loginError').textContent='';
   if(loginPinEntry.length===4){
     setTimeout(()=>{
-      const correct=getPin('login');
-      if(loginPinEntry===correct){
+      if(loginPinEntry===getPin('login')){
         loginSuccess(loginTarget);
       } else {
         document.getElementById('loginError').textContent='Incorrect PIN. Try again.';
@@ -569,26 +583,24 @@ function updateLoginDots(){
 }
 
 async function loginSuccess(name){
-  currentUser=getUsers().find(u=>u.name===name)||{name,role:'picker',initials:name.slice(0,2).toUpperCase()};
+  saveName(name);
+  currentUser={name,role:'user',initials:name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)};
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('mainApp').style.display='block';
-  // Update header
   document.getElementById('userNameDisplay').textContent=name;
-  document.getElementById('userAvatar').textContent=currentUser.initials||(name.slice(0,2).toUpperCase());
-  // Log login to Firestore
-  try{
-    await addDoc(collection(db,'loginLog'),{name,role:currentUser.role,ts:Date.now(),date:todayStr(),ua:navigator.userAgent.slice(0,80)});
-  }catch(e){}
+  document.getElementById('userAvatar').textContent=currentUser.initials;
+  try{await addDoc(collection(db,'loginLog'),{name,role:'user',ts:Date.now(),date:todayStr(),ua:navigator.userAgent.slice(0,80)});}catch(e){}
 }
 
 // ── PIN PROMPT SYSTEM ────────────────────────────────
+// Used for IC Manager PIN (shortages export) and Master Reset PIN
 let ppEntry='', ppExpected='', ppCallback=null;
 
 function requirePin(pinKey, title, sub, cb){
   ppExpected=getPin(pinKey); ppEntry=''; ppCallback=cb;
   document.getElementById('ppTitle').textContent=title||'🔐 Enter PIN';
   document.getElementById('ppSub').textContent=sub||'';
-  for(let i=0;i<4;i++){const d=document.getElementById('pp'+i);if(d){d.classList.remove('filled','error');}}
+  for(let i=0;i<4;i++){const d=document.getElementById('pp'+i);if(d)d.classList.remove('filled','error');}
   document.getElementById('ppError').textContent='';
   buildNumpad('ppNumpad', ppNumpadKey);
   openModal('pinPromptModal');
@@ -607,21 +619,21 @@ function ppNumpadKey(k){
       } else {
         document.getElementById('ppError').textContent='Incorrect PIN.';
         document.querySelectorAll('#ppd .pin-dot').forEach(d=>d.classList.add('error'));
-        setTimeout(()=>{ppEntry='';for(let i=0;i<4;i++){const d=document.getElementById('pp'+i);if(d){d.classList.remove('filled','error');}}},600);
+        setTimeout(()=>{ppEntry='';for(let i=0;i<4;i++){const d=document.getElementById('pp'+i);if(d)d.classList.remove('filled','error');}},600);
       }
     },120);
   }
 }
 
-// ── PASSPHRASE (for PIN reset) ────────────────────────
+// ── PASSPHRASE (for PIN reset) — not displayed anywhere ──
 let passphraseCallback=null;
-window.initiateChangePin = function(){
+window.initiateChangePin=function(){
   passphraseCallback=doChangePin;
   document.getElementById('passphraseInput').value='';
   document.getElementById('passphraseError').textContent='';
   openModal('passphraseModal');
 };
-window.verifyPassphrase = function(){
+window.verifyPassphrase=function(){
   const val=document.getElementById('passphraseInput').value.trim().toUpperCase();
   if(val===PASSPHRASE){closeModal('passphraseModal');if(passphraseCallback){passphraseCallback();passphraseCallback=null;}}
   else{document.getElementById('passphraseError').textContent='Incorrect passphrase.';}
@@ -631,23 +643,19 @@ function doChangePin(){
   const user=document.getElementById('changePinUser').value;
   const newP=document.getElementById('changePinVal').value.trim();
   if(!/^\d{4}$/.test(newP)){alert('PIN must be 4 digits.');return;}
-  if(user==='__login__'){setPin('login',newP);}
-  else if(user==='__icm__'){setPin('icm',newP);}
-  else if(user==='__reset__'){setPin('reset',newP);}
+  if(user==='__login__')setPin('login',newP);
+  else if(user==='__icm__')setPin('icm',newP);
+  else if(user==='__reset__')setPin('reset',newP);
   document.getElementById('changePinVal').value='';
   alert('PIN updated successfully.');
 }
 
 // ── NUMPAD BUILDER ───────────────────────────────────
 function buildNumpad(containerId, handler){
-  const el=document.getElementById(containerId);
-  if(!el)return;
+  const el=document.getElementById(containerId);if(!el)return;
   const keys=['1','2','3','4','5','6','7','8','9','⌫','0',''];
-  el.innerHTML=keys.map(k=>k?`<button class="numpad-btn" onclick="(${handler.name}||window.__np_${containerId})('${k}')">${k}</button>`:'<div></div>').join('');
-  // Bind directly since module scope isn't global
-  el.querySelectorAll('.numpad-btn').forEach(btn=>{
-    btn.onclick=()=>handler(btn.textContent);
-  });
+  el.innerHTML=keys.map(k=>k?`<button class="numpad-btn">${k}</button>`:'<div></div>').join('');
+  el.querySelectorAll('.numpad-btn').forEach(btn=>{btn.onclick=()=>handler(btn.textContent.trim());});
 }
 
 // ── FIREBASE LISTENERS ────────────────────────────────
@@ -1078,26 +1086,15 @@ function populateArchPickers(){const sel=document.getElementById('archPicker');i
 
 // ── SETTINGS UI ──────────────────────────────────────
 function renderSettingsUsers(){
-  const users=getUsers();
-  document.getElementById('userListSettings').innerHTML=users.map((u,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)"><div><strong>${u.name}</strong> <span class="badge ${u.role==='manager'?'bg-blue':'bg-gray'}">${u.role}</span></div><button class="btn btn-ghost btn-xs" onclick="removeUser(${i})">Remove</button></div>`).join('');
-  const sel=document.getElementById('changePinUser');
-  sel.innerHTML='<option value="__login__">Login PIN (all users)</option><option value="__icm__">IC Manager PIN</option><option value="__reset__">Master Reset PIN</option>';
+  const names=getSavedNames();
+  const el=document.getElementById('userListSettings');
+  if(!el)return;
+  if(!names.length){el.innerHTML='<div class="text-xs text-muted">No saved names yet.</div>';return;}
+  el.innerHTML=names.map((n,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px">👤 ${n}</span><button class="btn btn-ghost btn-xs" onclick="removeSavedName(${i})">Remove</button></div>`).join('');
 }
 
-window.addUser=function(){
-  const name=document.getElementById('newUserName').value.trim();
-  const role=document.getElementById('newUserRole').value;
-  if(!name)return;
-  const users=getUsers();
-  if(!users.find(u=>u.name.toLowerCase()===name.toLowerCase())){
-    users.push({name,role,initials:name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)});
-    saveUsers(users);buildLoginScreen();renderSettingsUsers();
-  }
-  document.getElementById('newUserName').value='';
-};
-
-window.removeUser=function(idx){
-  const users=getUsers();users.splice(idx,1);saveUsers(users);buildLoginScreen();renderSettingsUsers();
+window.removeSavedName=function(idx){
+  const names=getSavedNames();names.splice(idx,1);localStorage.setItem('wpt_saved_names',JSON.stringify(names));renderSettingsUsers();renderSavedNames();
 };
 
 // ── DARK MODE ────────────────────────────────────────
@@ -1204,7 +1201,6 @@ setInterval(tick,1000);tick();
 async function boot(){
   applyTheme();
   buildLoginScreen();
-  // Build numpad for pin prompt modal (re-bind when opened)
   document.getElementById('loadingOverlay').style.display='flex';
   try{
     await getDocs(collection(db,'pickers'));
