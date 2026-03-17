@@ -159,10 +159,11 @@ tbody td{padding:8px 11px;font-size:12px}
   <div class="header-right">
     <div id="connStatus" class="text-sm text-muted"><span class="conn-dot off"></span>Connecting…</div>
     <div class="header-meta" id="liveTime">—</div>
-    <div class="user-chip" id="userChip" title="Click to log out">
+    <div class="user-chip" id="userChip">
       <div class="ua" id="userAvatar">?</div>
       <span id="userNameDisplay">—</span>
     </div>
+    <button class="icon-btn" onclick="doLogout()" title="Log out" style="color:var(--red);border-color:var(--red)">⏏ Logout</button>
     <button class="icon-btn" onclick="showPage('settings',this)">⚙️</button>
   </div>
 </div>
@@ -351,10 +352,20 @@ tbody td{padding:8px 11px;font-size:12px}
     </div>
     <div class="card mb-12"><div class="card-header"><div class="card-title">🔑 Change PIN</div></div>
       <div class="card-body">
-        <div class="form-row">
-          <div class="form-group"><label>Select User</label><select id="changePinUser" class="w-auto" style="width:100%"></select></div>
-          <div class="form-group"><label>New PIN (4 digits)</label><input type="password" id="changePinVal" placeholder="----" maxlength="4" style="width:100%"></div>
-          <div class="form-group" style="flex:0;display:flex;align-items:flex-end"><button class="btn btn-primary btn-sm" onclick="initiateChangePin()">Save</button></div>
+        <div class="text-xs text-muted mb-12">Changing any PIN requires the Master PIN for authorization.</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm)">
+            <div><div style="font-size:13px;font-weight:600">Login PIN</div><div class="text-xs text-muted">Used by all staff to log in</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="initiatePinChange('login','Login PIN')">Change</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm)">
+            <div><div style="font-size:13px;font-weight:600">IC Manager PIN</div><div class="text-xs text-muted">Required for WMS export</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="initiatePinChange('icm','IC Manager PIN')">Change</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm)">
+            <div><div style="font-size:13px;font-weight:600">Master Reset PIN</div><div class="text-xs text-muted">Required to clear all data &amp; change PINs</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="initiatePinChange('reset','Master Reset PIN')">Change</button>
+          </div>
         </div>
       </div>
     </div>
@@ -386,16 +397,42 @@ tbody td{padding:8px 11px;font-size:12px}
 <div class="modal-overlay modal-lg" id="shortageModal">
   <div class="modal"><div class="modal-head"><div class="modal-title">📦 Shortage Report</div><span class="modal-x" onclick="skipShortage()">×</span></div>
     <div class="modal-body">
-      <div class="alert alert-amber">Were there any shortages? Add items or click "No Shortages" to complete.</div>
-      <div class="text-xs mono bold mb-8 text-muted" id="shortageOrderLabel"></div>
-      <div style="display:grid;grid-template-columns:2fr 2fr 1fr 26px;gap:5px;margin-bottom:4px">
-        <div class="text-xs bold text-muted">PRODUCT #</div><div class="text-xs bold text-muted">BIN</div><div class="text-xs bold text-muted">QTY SHORT</div><div></div>
+      <div class="alert alert-amber" style="margin-bottom:10px">
+        <div><strong>Were there any shortages on this order?</strong><br>Add each shorted item one at a time. Click <em>"+ Add Another"</em> to keep going, or <em>"Done — No More Shorts"</em> when finished.</div>
       </div>
-      <div id="shortageList"></div>
-      <button class="btn btn-ghost btn-sm mt-8" onclick="addShortageRow()">+ Add Item</button>
-      <div class="alert alert-blue mt-10" style="margin-bottom:0">Picker receives credit for <strong id="shortPickedPrev">—</strong> lines (total minus qty shorted). Lines/Hr KPI is based on successful picks only.</div>
+      <div class="text-xs mono bold mb-10 text-muted" id="shortageOrderLabel"></div>
+
+      <!-- Current item entry -->
+      <div id="shortageEntrySection">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px">
+          <div class="text-xs bold text-muted mb-8">ADD SHORTAGE ITEM</div>
+          <div class="form-row">
+            <div class="form-group"><label>Product #</label><input type="text" id="shortProd" placeholder="e.g. ABC-12345" autocomplete="off"></div>
+            <div class="form-group"><label>Bin Location</label><input type="text" id="shortBin" placeholder="e.g. A-01-01" autocomplete="off"></div>
+            <div class="form-group" style="flex:0;min-width:80px"><label>Qty Short</label><input type="number" id="shortQty" placeholder="0" min="1" oninput="recalcShortPreview()"></div>
+          </div>
+          <div class="flex gap-8">
+            <button class="btn btn-amber btn-sm" onclick="addShortageItemToList()">+ Add Another Short</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearShortageEntry()">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Running list of items added so far -->
+      <div id="shortageAddedWrap" style="display:none;margin-bottom:10px">
+        <div class="text-xs bold text-muted mb-6">ITEMS RECORDED SO FAR:</div>
+        <div id="shortageAddedList" style="display:flex;flex-direction:column;gap:4px"></div>
+      </div>
+
+      <div class="alert alert-blue" style="margin-bottom:0">
+        Picker credited: <strong id="shortPickedPrev">— of —</strong> lines
+        <span class="text-xs text-muted" style="margin-left:6px">(order lines minus total qty shorted)</span>
+      </div>
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="skipShortage()">No Shortages — Complete</button><button class="btn btn-amber" onclick="submitWithShortage()">Submit Shortages → Back Order</button></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="skipShortage()">No Shortages — Complete Order</button>
+      <button class="btn btn-success" onclick="submitWithShortage()">✓ Done — No More Shorts</button>
+    </div>
   </div>
 </div>
 
@@ -443,14 +480,14 @@ tbody td{padding:8px 11px;font-size:12px}
   </div>
 </div>
 
-<div class="modal-overlay modal-sm" id="passphraseModal">
-  <div class="modal"><div class="modal-head"><div class="modal-title">🔑 Enter Passphrase</div><span class="modal-x" onclick="closeModal('passphraseModal')">×</span></div>
-    <div class="modal-body">
-      <div class="text-sm text-muted mb-8">Enter the secret passphrase to reset a PIN.</div>
-      <div class="form-group"><label>Passphrase</label><input type="password" id="passphraseInput" placeholder="Enter passphrase" autocomplete="off"></div>
-      <div id="passphraseError" style="color:var(--red);font-size:12px;min-height:15px"></div>
+<div class="modal-overlay modal-sm" id="newPinModal">
+  <div class="modal"><div class="modal-head"><div class="modal-title" id="newPinTitle">Set New PIN</div><span class="modal-x" onclick="closeModal('newPinModal')">×</span></div>
+    <div class="modal-body text-c">
+      <div class="text-xs text-muted mb-8" id="newPinSub">Enter a new 4-digit PIN</div>
+      <div class="pin-dots" id="npd"><div class="pin-dot" id="np0"></div><div class="pin-dot" id="np1"></div><div class="pin-dot" id="np2"></div><div class="pin-dot" id="np3"></div></div>
+      <div class="numpad" id="npNumpad"></div>
+      <div id="npError" style="color:var(--red);font-size:12px;margin-top:6px;min-height:15px"></div>
     </div>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('passphraseModal')">Cancel</button><button class="btn btn-primary" onclick="verifyPassphrase()">Verify</button></div>
   </div>
 </div>
 
@@ -485,8 +522,6 @@ const db    = getFirestore(fbApp);
 // ── CONSTANTS ────────────────────────────────────────
 const DIV = {GT:{name:'TAG',color:'#1d6ef5'},NH:{name:'NAPA',color:'#16a34a'},FS:{name:'Forside',color:'#d97706'},EE:{name:'Ever Ellis',color:'#7c3aed'},BC:{name:'Beachcombers',color:'#0891b2'},VP:{name:'VIP',color:'#db2777'},TP:{name:'Transpac',color:'#ea580c'}};
 const DIV_BADGE = {GT:'bg-blue',NH:'bg-green',FS:'bg-amber',EE:'bg-purple',BC:'bg-teal',VP:'bg-purple',TP:'bg-orange'};
-const PASSPHRASE = 'PACERS';
-
 // ── DEFAULT PINS (stored in localStorage) ────────────
 // Login PIN: one PIN for everyone, just enter your name
 // IC Manager PIN: required for WMS export
@@ -625,29 +660,52 @@ function ppNumpadKey(k){
   }
 }
 
-// ── PASSPHRASE (for PIN reset) — not displayed anywhere ──
-let passphraseCallback=null;
-window.initiateChangePin=function(){
-  passphraseCallback=doChangePin;
-  document.getElementById('passphraseInput').value='';
-  document.getElementById('passphraseError').textContent='';
-  openModal('passphraseModal');
-};
-window.verifyPassphrase=function(){
-  const val=document.getElementById('passphraseInput').value.trim().toUpperCase();
-  if(val===PASSPHRASE){closeModal('passphraseModal');if(passphraseCallback){passphraseCallback();passphraseCallback=null;}}
-  else{document.getElementById('passphraseError').textContent='Incorrect passphrase.';}
+// ── LOGOUT ───────────────────────────────────────────
+window.doLogout=function(){
+  if(!confirm('Log out?'))return;
+  currentUser=null;
+  document.getElementById('mainApp').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  // Reset login form
+  document.getElementById('loginNameInput').value='';
+  document.getElementById('loginStep1').style.display='block';
+  document.getElementById('loginStep2').style.display='none';
+  loginPinEntry=''; loginTarget='';
+  renderSavedNames();
 };
 
-function doChangePin(){
-  const user=document.getElementById('changePinUser').value;
-  const newP=document.getElementById('changePinVal').value.trim();
-  if(!/^\d{4}$/.test(newP)){alert('PIN must be 4 digits.');return;}
-  if(user==='__login__')setPin('login',newP);
-  else if(user==='__icm__')setPin('icm',newP);
-  else if(user==='__reset__')setPin('reset',newP);
-  document.getElementById('changePinVal').value='';
-  alert('PIN updated successfully.');
+// ── PIN CHANGE (requires master PIN first, then new PIN) ─
+let changingPinKey='', changingPinLabel='';
+let npEntry='';
+
+window.initiatePinChange=function(pinKey, label){
+  changingPinKey=pinKey; changingPinLabel=label;
+  // Require master PIN first
+  requirePin('reset','🔐 Master PIN Required',`Verify master PIN to change the ${label}.`,openNewPinEntry);
+};
+
+function openNewPinEntry(){
+  npEntry='';
+  document.getElementById('newPinTitle').textContent=`Set New ${changingPinLabel}`;
+  document.getElementById('newPinSub').textContent='Enter new 4-digit PIN';
+  for(let i=0;i<4;i++){const d=document.getElementById('np'+i);if(d)d.classList.remove('filled','error');}
+  document.getElementById('npError').textContent='';
+  buildNumpad('npNumpad', npNumpadKey);
+  openModal('newPinModal');
+}
+
+function npNumpadKey(k){
+  if(k==='⌫'){npEntry=npEntry.slice(0,-1);}
+  else if(npEntry.length<4){npEntry+=k;}
+  for(let i=0;i<4;i++){const d=document.getElementById('np'+i);if(d)d.classList.toggle('filled',i<npEntry.length);}
+  document.getElementById('npError').textContent='';
+  if(npEntry.length===4){
+    setTimeout(()=>{
+      setPin(changingPinKey, npEntry);
+      npEntry=''; closeModal('newPinModal');
+      alert(`${changingPinLabel} updated successfully.`);
+    },120);
+  }
 }
 
 // ── NUMPAD BUILDER ───────────────────────────────────
@@ -748,28 +806,73 @@ async function doSubmit({orderNum,lines,pickerName,shift}){
 
 // ── SHORTAGE MODAL ───────────────────────────────────
 let shortageTarget=null;
+let shortageItemsCollected=[];  // items added so far in this session
 
 function showShortageModal(order,closeTs){
   shortageTarget={order,closeTs};
-  document.getElementById('shortageOrderLabel').textContent=`Order: ${order.orderNum} · ${order.pickerName} · ${order.lines} lines on order`;
-  document.getElementById('shortageList').innerHTML='';
+  shortageItemsCollected=[];
+  document.getElementById('shortageOrderLabel').textContent=
+    `Order: ${order.orderNum}  ·  Picker: ${order.pickerName}  ·  ${order.lines} lines on order`;
+  // Clear entry fields
+  document.getElementById('shortProd').value='';
+  document.getElementById('shortBin').value='';
+  document.getElementById('shortQty').value='';
+  renderShortageAddedList();
   updateShortPickedPreview(order.lines,0);
   openModal('shortageModal');
-  busy=false;document.getElementById('submitBtn').disabled=false;
+  busy=false; document.getElementById('submitBtn').disabled=false;
+  setTimeout(()=>document.getElementById('shortProd').focus(),200);
 }
 
-window.addShortageRow=function(){
-  const row=document.createElement('div');
-  row.className='shortage-item';
-  row.innerHTML=`<input type="text" placeholder="Product #" style="flex:2"><input type="text" placeholder="Bin" style="flex:2"><input type="number" placeholder="Qty" min="1" style="flex:1" oninput="recalcShortPreview()"><button class="shortage-remove" onclick="this.parentElement.remove();recalcShortPreview()">✕</button>`;
-  document.getElementById('shortageList').appendChild(row);
+function renderShortageAddedList(){
+  const wrap=document.getElementById('shortageAddedWrap');
+  const list=document.getElementById('shortageAddedList');
+  if(!shortageItemsCollected.length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  list.innerHTML=shortageItemsCollected.map((item,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--amber-light);border:1px solid var(--amber);border-radius:var(--radius-sm)">
+      <span style="color:var(--amber);font-size:13px">⚠</span>
+      <span class="mono bold" style="flex:1;font-size:12px">${item.product}</span>
+      <span class="text-xs text-muted">Bin: ${item.bin||'—'}</span>
+      <span class="badge bg-red">Qty: ${item.qty}</span>
+      <button onclick="removeShortageItem(${i})" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:14px;line-height:1">✕</button>
+    </div>`).join('');
+}
+
+window.removeShortageItem=function(idx){
+  shortageItemsCollected.splice(idx,1);
+  renderShortageAddedList();
+  recalcShortPreview();
+};
+
+window.addShortageItemToList=function(){
+  const product=document.getElementById('shortProd').value.trim().toUpperCase();
+  const bin=document.getElementById('shortBin').value.trim().toUpperCase();
+  const qty=parseInt(document.getElementById('shortQty').value)||0;
+  if(!product){document.getElementById('shortProd').focus();return;}
+  if(qty<1){document.getElementById('shortQty').focus();return;}
+  shortageItemsCollected.push({product,bin,qty});
+  // Clear for next entry
+  document.getElementById('shortProd').value='';
+  document.getElementById('shortBin').value='';
+  document.getElementById('shortQty').value='';
+  document.getElementById('shortProd').focus();
+  renderShortageAddedList();
+  recalcShortPreview();
+};
+
+window.clearShortageEntry=function(){
+  document.getElementById('shortProd').value='';
+  document.getElementById('shortBin').value='';
+  document.getElementById('shortQty').value='';
+  document.getElementById('shortProd').focus();
 };
 
 window.recalcShortPreview=function(){
   if(!shortageTarget)return;
-  const rows=document.querySelectorAll('#shortageList .shortage-item');
-  let totalShort=0;rows.forEach(r=>{const inp=r.querySelectorAll('input');totalShort+=parseInt(inp[2]?.value)||0;});
-  updateShortPickedPreview(shortageTarget.order.lines,totalShort);
+  const entryQty=parseInt(document.getElementById('shortQty')?.value)||0;
+  const listQty=shortageItemsCollected.reduce((a,i)=>a+i.qty,0);
+  updateShortPickedPreview(shortageTarget.order.lines, listQty+entryQty);
 };
 
 function updateShortPickedPreview(total,shorted){
@@ -779,27 +882,49 @@ function updateShortPickedPreview(total,shorted){
 
 window.skipShortage=async function(){
   if(!shortageTarget){closeModal('shortageModal');return;}
-  const{order,closeTs}=shortageTarget;shortageTarget=null;closeModal('shortageModal');
+  const{order,closeTs}=shortageTarget; shortageTarget=null; shortageItemsCollected=[];
+  closeModal('shortageModal');
   await updateDoc(doc(db,'orders',order.id),{endTs:closeTs,status:'closed',hasShortage:false,pickedLines:order.lines});
-  showSR('sr-closed','✅ Order Completed',`${order.orderNum} closed. Duration: ${fmtDur(closeTs-order.startTs)}. ${order.lines} lines credited.`);
+  showSR('sr-closed','✅ Order Completed',
+    `${order.orderNum} closed in ${fmtDur(closeTs-order.startTs)}. ${order.lines} lines credited to ${order.pickerName}.`);
   clearScanForm();
 };
 
 window.submitWithShortage=async function(){
   if(!shortageTarget)return;
-  const{order,closeTs}=shortageTarget;
-  const rows=document.querySelectorAll('#shortageList .shortage-item');
-  const items=[];
-  rows.forEach(r=>{const inp=r.querySelectorAll('input');const product=inp[0].value.trim().toUpperCase();const bin=inp[1].value.trim().toUpperCase();const qty=parseInt(inp[2].value)||0;if(product&&qty>0)items.push({product,bin,qty});});
-  shortageTarget=null;closeModal('shortageModal');
-  const totalShort=items.reduce((a,i)=>a+i.qty,0);
+  // If user typed something in the entry fields but didn't click "+Add", capture it automatically
+  const entryProd=document.getElementById('shortProd').value.trim().toUpperCase();
+  const entryBin=document.getElementById('shortBin').value.trim().toUpperCase();
+  const entryQty=parseInt(document.getElementById('shortQty').value)||0;
+  if(entryProd&&entryQty>0) shortageItemsCollected.push({product:entryProd,bin:entryBin,qty:entryQty});
+
+  const{order,closeTs}=shortageTarget; shortageTarget=null;
+  closeModal('shortageModal');
+
+  // pickedLines = order lines MINUS total qty shorted
+  const totalShort=shortageItemsCollected.reduce((a,i)=>a+i.qty,0);
   const pickedLines=Math.max(0,(order.lines||0)-totalShort);
-  for(const item of items){
-    await addDoc(collection(db,'shortages'),{orderId:order.id,orderNum:order.orderNum,division:order.division,pickerName:order.pickerName,date:order.date,product:item.product,bin:item.bin,qty:item.qty,resolution:'pending',notes:'',startTs:order.startTs||Date.now()});
+
+  if(shortageItemsCollected.length>0){
+    for(const item of shortageItemsCollected){
+      await addDoc(collection(db,'shortages'),{
+        orderId:order.id, orderNum:order.orderNum, division:order.division,
+        pickerName:order.pickerName, date:order.date,
+        product:item.product, bin:item.bin, qty:item.qty,
+        resolution:'pending', notes:'', startTs:order.startTs||Date.now()
+      });
+    }
+    await updateDoc(doc(db,'orders',order.id),{endTs:closeTs,status:'backorder',hasShortage:true,backorderDone:false,pickedLines});
+    showSR('sr-warn','🔄 Back Order',
+      `${order.orderNum} → Back Order. ${shortageItemsCollected.length} short item(s). ` +
+      `${pickedLines} of ${order.lines} lines credited to ${order.pickerName}.`);
+  } else {
+    // No items collected — treat as no shortage
+    await updateDoc(doc(db,'orders',order.id),{endTs:closeTs,status:'closed',hasShortage:false,pickedLines:order.lines});
+    showSR('sr-closed','✅ Order Completed',
+      `${order.orderNum} closed in ${fmtDur(closeTs-order.startTs)}. ${order.lines} lines credited.`);
   }
-  // Picker gets credit for pickedLines (total minus shorted)
-  await updateDoc(doc(db,'orders',order.id),{endTs:closeTs,status:'backorder',hasShortage:true,backorderDone:false,pickedLines});
-  showSR('sr-warn','🔄 Back Order',`${order.orderNum} → Back Order. ${pickedLines} of ${order.lines} lines credited to ${order.pickerName}.`);
+  shortageItemsCollected=[];
   clearScanForm();
 };
 
