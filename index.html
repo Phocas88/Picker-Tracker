@@ -221,20 +221,6 @@ tbody td{padding:8px 11px;font-size:12px}
   </div>
 </div>
 
-<!-- OPEN ORDERS -->
-<div class="page" id="page-open-orders">
-  <div class="flex-c j-between mb-12 gap-8" style="flex-wrap:wrap">
-    <div class="section-title" style="margin:0">All Open Orders</div>
-    <div class="flex gap-8">
-      <input type="text" id="openSearch" placeholder="🔍 Search…" oninput="renderOpenOrders()" style="width:200px">
-      <select id="openShiftF" onchange="renderOpenOrders()" class="w-auto"><option value="">All Shifts</option><option value="1st">1st</option><option value="2nd">2nd</option></select>
-    </div>
-  </div>
-  <div class="card"><div class="card-body" style="padding:0">
-    <div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Start</th><th>Lines</th><th>Shortages</th><th>Status</th></tr></thead><tbody id="openOrdersBody"></tbody></table></div>
-  </div></div>
-</div>
-
 <!-- DASHBOARD -->
 <div class="page" id="page-dashboard">
   <div class="flex-c j-between mb-16 gap-10" style="flex-wrap:wrap">
@@ -295,7 +281,7 @@ tbody td{padding:8px 11px;font-size:12px}
     </div>
   </div>
   <div class="card"><div class="card-body" style="padding:0">
-    <div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Start</th><th>Lines</th><th>Shortages</th><th>Status</th></tr></thead><tbody id="openOrdersBody"></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Start</th><th>Lines</th><th>Shortages</th><th>Status</th><th></th></tr></thead><tbody id="openOrdersBody"></tbody></table></div>
   </div></div>
 </div>
 
@@ -393,7 +379,7 @@ tbody td{padding:8px 11px;font-size:12px}
     <div id="archCount" class="text-xs text-muted"></div>
   </div></div>
   <div class="card"><div class="card-body" style="padding:0">
-    <div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Start</th><th>Completed</th><th>Duration</th><th>Lines</th><th>Shortages</th><th>Status</th></tr></thead><tbody id="archBody"></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>Order #</th><th>Division</th><th>Picker</th><th>Shift</th><th>Date</th><th>Start</th><th>Completed</th><th>Duration</th><th>Lines</th><th>Shortages</th><th>Status</th><th></th></tr></thead><tbody id="archBody"></tbody></table></div>
     <div id="archPag" style="padding:10px 14px;display:flex;gap:7px;align-items:center;border-top:1px solid var(--border);flex-wrap:wrap"></div>
   </div></div>
 </div>
@@ -585,6 +571,32 @@ tbody td{padding:8px 11px;font-size:12px}
       <div class="pin-dots" id="npd"><div class="pin-dot" id="np0"></div><div class="pin-dot" id="np1"></div><div class="pin-dot" id="np2"></div><div class="pin-dot" id="np3"></div></div>
       <div class="numpad" id="npNumpad"></div>
       <div id="npError" style="color:var(--red);font-size:12px;margin-top:6px;min-height:15px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay modal-sm" id="editOrderModal">
+  <div class="modal"><div class="modal-head"><div class="modal-title">✏️ Edit Order Times</div><span class="modal-x" onclick="closeModal('editOrderModal')">×</span></div>
+    <div class="modal-body">
+      <div class="mono bold mb-8" id="editOrderLabel" style="font-size:13px;color:var(--accent)"></div>
+      <div class="form-group">
+        <label>Start Date &amp; Time</label>
+        <input type="datetime-local" id="editOrderStart">
+      </div>
+      <div class="form-group" id="editOrderEndGroup">
+        <label>Close Date &amp; Time</label>
+        <input type="datetime-local" id="editOrderEnd">
+        <div class="text-xs text-muted" style="margin-top:4px">Leave blank to keep order open</div>
+      </div>
+      <div class="form-group">
+        <label>Lines on Order</label>
+        <input type="number" id="editOrderLines" min="0" placeholder="# of lines">
+      </div>
+      <div id="editOrderDuration" class="text-xs text-muted" style="margin-top:4px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('editOrderModal')">Cancel</button>
+      <button class="btn btn-primary" id="editOrderSaveBtn" onclick="saveEditOrder()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -1051,21 +1063,111 @@ window.renderOpenOrders=function(){
   if(sf)list=list.filter(o=>o.shift===sf);
   list.sort((a,b)=>b.startTs-a.startTs);
   const body=document.getElementById('openOrdersBody');
-  if(!list.length){body.innerHTML='<tr><td colspan="9" class="text-c text-muted" style="padding:28px">No open orders</td></tr>';return;}
-  body.innerHTML=list.map(o=>{const sc=SHORTAGES.filter(s=>s.orderId===o.id).length;return`<tr><td class="mono bold">${o.orderNum}</td><td>${divBadge(o.division)}</td><td>${o.pickerName}</td><td>${shiftBadge(o.shift)}</td><td>${o.date}</td><td>${fmtTime(o.startTs)}</td><td>${o.lines||'—'}</td><td>${sc>0?`<span class="badge bg-red">${sc}</span>`:'<span class="badge bg-gray">None</span>'}</td><td>${statusBadgeOrder(o.status)}</td></tr>`;}).join('');
+  if(!list.length){body.innerHTML='<tr><td colspan="10" class="text-c text-muted" style="padding:28px">No open orders</td></tr>';return;}
+  body.innerHTML=list.map(o=>{
+    const sc=SHORTAGES.filter(s=>s.orderId===o.id).length;
+    return`<tr>
+      <td class="mono bold">${o.orderNum}</td>
+      <td>${divBadge(o.division)}</td>
+      <td>${o.pickerName}</td>
+      <td>${shiftBadge(o.shift)}</td>
+      <td>${o.date}</td>
+      <td>${fmtTime(o.startTs)}</td>
+      <td>${o.lines||'—'}</td>
+      <td>${sc>0?`<span class="badge bg-red">${sc}</span>`:'<span class="badge bg-gray">None</span>'}</td>
+      <td>${statusBadgeOrder(o.status)}</td>
+      <td><button class="btn btn-ghost btn-xs" onclick="openEditOrder('${o.id}')">✏️ Edit</button></td>
+    </tr>`;
+  }).join('');
 };
 
-// ── DASHBOARD ────────────────────────────────────────
+// ── EDIT ORDER ───────────────────────────────────────
+// Convert ms timestamp to datetime-local string (local time)
+function tsToDatetimeLocal(ms){
+  if(!ms)return'';
+  const d=new Date(ms);
+  const pad=n=>String(n).padStart(2,'0');
+  return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function datetimeLocalToTs(str){
+  if(!str)return null;
+  return new Date(str).getTime();
+}
+
+window.openEditOrder=function(orderId){
+  const o=ORDERS.find(x=>x.id===orderId);
+  if(!o)return;
+  document.getElementById('editOrderModal').dataset.orderId=orderId;
+  document.getElementById('editOrderLabel').textContent=`${o.orderNum} — ${o.pickerName}`;
+  document.getElementById('editOrderStart').value=tsToDatetimeLocal(o.startTs);
+  document.getElementById('editOrderEnd').value=tsToDatetimeLocal(o.endTs);
+  document.getElementById('editOrderLines').value=o.lines||'';
+  updateEditOrderDuration();
+  // Show/hide end field label based on status
+  const endGroup=document.getElementById('editOrderEndGroup');
+  if(endGroup)endGroup.style.display='block';
+  openModal('editOrderModal');
+};
+
+function updateEditOrderDuration(){
+  const startStr=document.getElementById('editOrderStart')?.value;
+  const endStr=document.getElementById('editOrderEnd')?.value;
+  const el=document.getElementById('editOrderDuration');
+  if(!el)return;
+  if(startStr&&endStr){
+    const ms=datetimeLocalToTs(endStr)-datetimeLocalToTs(startStr);
+    el.textContent=ms>0?`Duration: ${fmtDur(ms)}`:'⚠️ End time is before start time';
+    el.style.color=ms>0?'var(--text3)':'var(--red)';
+  } else {
+    el.textContent='';
+  }
+}
+
+// Live duration preview as user types
+document.addEventListener('change',function(e){
+  if(e.target.id==='editOrderStart'||e.target.id==='editOrderEnd') updateEditOrderDuration();
+});
+
+window.saveEditOrder=async function(){
+  const orderId=document.getElementById('editOrderModal').dataset.orderId;
+  if(!orderId)return;
+  const startTs=datetimeLocalToTs(document.getElementById('editOrderStart').value);
+  const endTs=datetimeLocalToTs(document.getElementById('editOrderEnd').value)||null;
+  const lines=parseInt(document.getElementById('editOrderLines').value)||0;
+  if(!startTs){alert('Start time is required.');return;}
+  if(endTs&&endTs<startTs){alert('End time cannot be before start time.');return;}
+  const btn=document.getElementById('editOrderSaveBtn');btn.disabled=true;
+  try{
+    const o=ORDERS.find(x=>x.id===orderId);
+    const update={startTs,lines};
+    if(endTs){
+      update.endTs=endTs;
+      // Keep existing status unless it was open — then close it
+      if(o&&o.status==='open') update.status='closed';
+      // Recalc pickedLines if no shortages
+      const hasShortages=SHORTAGES.some(s=>s.orderId===orderId);
+      if(!hasShortages) update.pickedLines=lines;
+    } else {
+      update.endTs=null;
+      if(o&&o.status!=='backorder') update.status='open';
+    }
+    await updateDoc(doc(db,'orders',orderId),update);
+    closeModal('editOrderModal');
+  }catch(e){alert('Error saving: '+e.message);}
+  finally{btn.disabled=false;}
+};
 window.renderDashboard=function(){
   const p=document.getElementById('dashPeriod').value;
   const s=document.getElementById('dashShift').value;
   let orders=byPeriod(ORDERS,p);
   if(s!=='all')orders=orders.filter(o=>o.shift===s);
   const done=orders.filter(o=>o.status!=='open');
-  // Use pickedLines for KPI (credit minus shortages)
   const totalLines=done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-  let totalMs=0;done.forEach(o=>{if(o.endTs&&o.startTs)totalMs+=(o.endTs-o.startTs);});
-  const lph=totalMs>0&&totalLines>0?(totalLines/(totalMs/3600000)).toFixed(1):'—';
+  // Team lines/hr: total lines / (earliest start → latest end across all done orders)
+  const allStarts=done.map(o=>o.startTs).filter(Boolean);
+  const allEnds=done.map(o=>o.endTs).filter(Boolean);
+  const teamSpanMs=(allStarts.length&&allEnds.length)?Math.max(...allEnds)-Math.min(...allStarts):0;
+  const lph=teamSpanMs>0&&totalLines>0?(totalLines/(teamSpanMs/3600000)).toFixed(1):'—';
   document.getElementById('dashStats').innerHTML=`
     <div class="stat-card c-accent"><div class="stat-label">Orders Completed</div><div class="stat-value">${done.length}</div><div class="stat-sub">${p}</div></div>
     <div class="stat-card c-green"><div class="stat-label">Total Lines Picked</div><div class="stat-value">${totalLines}</div><div class="stat-sub">credited lines</div></div>
@@ -1083,14 +1185,21 @@ window.renderDashboard=function(){
   const pm={};
   orders.forEach(o=>{
     if(deactivatedNames.has(o.pickerName))return;
-    if(!pm[o.pickerName])pm[o.pickerName]={shift:o.shift,orders:0,lines:0,ms:0,cnt:0,shorts:0};
-    if(o.status!=='open'){pm[o.pickerName].orders++;pm[o.pickerName].lines+=(o.pickedLines||o.lines||0);if(o.endTs&&o.startTs){pm[o.pickerName].ms+=(o.endTs-o.startTs);pm[o.pickerName].cnt++;}}
+    if(!pm[o.pickerName])pm[o.pickerName]={shift:o.shift,orders:0,lines:0,shorts:0,starts:[],ends:[]};
+    if(o.status!=='open'){
+      pm[o.pickerName].orders++;
+      pm[o.pickerName].lines+=(o.pickedLines||o.lines||0);
+      if(o.startTs)pm[o.pickerName].starts.push(o.startTs);
+      if(o.endTs)pm[o.pickerName].ends.push(o.endTs);
+    }
   });
   SHORTAGES.forEach(s=>{const o=ORDERS.find(x=>x.id===s.orderId);if(o&&pm[o.pickerName])pm[o.pickerName].shorts+=s.qty;});
   document.getElementById('dashPickerBody').innerHTML=Object.entries(pm).sort((a,b)=>b[1].lines-a[1].lines).map(([n,d])=>{
     const avgL=d.orders>0?(d.lines/d.orders).toFixed(1):'—';
-    const avgT=d.cnt>0?fmtDur(d.ms/d.cnt):'—';
-    const lph=d.ms>0?(d.lines/(d.ms/3600000)).toFixed(1):'—';
+    // Session span: first start → last end
+    const sessionMs=(d.starts.length&&d.ends.length)?Math.max(...d.ends)-Math.min(...d.starts):0;
+    const avgT=sessionMs>0&&d.orders>0?fmtDur(sessionMs/d.orders):'—';
+    const lph=sessionMs>0&&d.lines>0?(d.lines/(sessionMs/3600000)).toFixed(1):'—';
     return`<tr><td><strong>${n}</strong></td><td>${shiftBadge(d.shift)}</td><td>${d.orders}</td><td><strong>${d.lines}</strong></td><td>${avgL}</td><td>${avgT}</td><td><strong>${lph}</strong></td><td>${d.shorts>0?`<span class="badge bg-amber">${d.shorts}</span>`:'—'}</td></tr>`;
   }).join('')||'<tr><td colspan="8" class="text-c text-muted" style="padding:22px">No data</td></tr>';
 };
@@ -1154,8 +1263,12 @@ function pickerCardHTML(p,now,isDeactivated){
   const td=mine.filter(o=>o.date===todayStr());
   const tdL=td.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
   const totL=mine.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-  let ms=0;mine.forEach(o=>{if(o.endTs&&o.startTs)ms+=(o.endTs-o.startTs);});
-  const lph=ms>0&&totL>0?(totL/(ms/3600000)).toFixed(1):'—';
+  // Lines/hr: total lines / span from first order today to last completion today
+  const tdAll=ORDERS.filter(o=>o.pickerName===p.name&&o.date===todayStr());
+  const starts=tdAll.map(o=>o.startTs).filter(Boolean);
+  const ends=td.map(o=>o.endTs).filter(Boolean);
+  const sessionMs=(starts.length&&ends.length)?Math.max(...ends)-Math.min(...starts):0;
+  const lph=sessionMs>0&&tdL>0?(tdL/(sessionMs/3600000)).toFixed(1):'—';
   const inact=!isDeactivated&&(now-p.lastActiveTs>30*86400000);
   const isPicking=ORDERS.some(o=>o.pickerName===p.name&&o.status==='open');
   const style=isDeactivated?'opacity:.55;':'';
@@ -1246,9 +1359,12 @@ window.renderLive=function(){
     const myOrders=todayOrders.filter(o=>o.pickerName===p.name);
     const done=myOrders.filter(o=>o.status!=='open');
     const openOrd=myOrders.find(o=>o.status==='open');
-    let ms=0;done.forEach(o=>{if(o.endTs&&o.startTs)ms+=(o.endTs-o.startTs);});
     const lines=done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-    const lph=ms>0&&lines>0?(lines/(ms/3600000)).toFixed(1):null;
+    // Lines/hr = lines / (first order start → now), gives realistic rate across shift
+    const allStarts=myOrders.map(o=>o.startTs).filter(Boolean);
+    const firstStart=allStarts.length?Math.min(...allStarts):null;
+    const sessionMs=firstStart?(now-firstStart):0;
+    const lph=sessionMs>0&&lines>0?(lines/(sessionMs/3600000)).toFixed(1):null;
     pmap[p.name]={name:p.name,shift:p.shift,orders:done.length,lines,lph,openOrd,isPicking:!!openOrd,timeOnOrder:openOrd?(now-openOrd.startTs):0};
   });
   let rows=Object.values(pmap);
@@ -1498,8 +1614,21 @@ window.renderArchive=function(){
   const total=Math.ceil(list.length/PG);archPage=Math.min(archPage,Math.max(0,total-1));
   document.getElementById('archBody').innerHTML=list.slice(archPage*PG,(archPage+1)*PG).map(o=>{
     const sc=SHORTAGES.filter(s=>s.orderId===o.id).length;
-    return`<tr><td class="mono">${o.orderNum}</td><td>${divBadge(o.division)}</td><td>${o.pickerName}</td><td>${shiftBadge(o.shift)}</td><td>${o.date}</td><td>${fmtTime(o.startTs)}</td><td>${fmtTime(o.endTs)}</td><td>${o.endTs&&o.startTs?fmtDur(o.endTs-o.startTs):'—'}</td><td>${o.pickedLines||o.lines||'—'}</td><td>${sc>0?`<span class="badge bg-amber">${sc}</span>`:'—'}</td><td>${statusBadgeOrder(o.status)}</td></tr>`;
-  }).join('')||'<tr><td colspan="11" class="text-c text-muted" style="padding:28px">No records</td></tr>';
+    return`<tr>
+      <td class="mono">${o.orderNum}</td>
+      <td>${divBadge(o.division)}</td>
+      <td>${o.pickerName}</td>
+      <td>${shiftBadge(o.shift)}</td>
+      <td>${o.date}</td>
+      <td>${fmtTime(o.startTs)}</td>
+      <td>${fmtTime(o.endTs)}</td>
+      <td>${o.endTs&&o.startTs?fmtDur(o.endTs-o.startTs):'—'}</td>
+      <td>${o.pickedLines||o.lines||'—'}</td>
+      <td>${sc>0?`<span class="badge bg-amber">${sc}</span>`:'—'}</td>
+      <td>${statusBadgeOrder(o.status)}</td>
+      <td><button class="btn btn-ghost btn-xs" onclick="openEditOrder('${o.id}')">✏️ Edit</button></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="12" class="text-c text-muted" style="padding:28px">No records</td></tr>';
   const pag=document.getElementById('archPag');
   if(total<=1){pag.innerHTML='';return;}
   pag.innerHTML=`<button class="btn btn-ghost btn-sm" onclick="archGo(${archPage-1})" ${archPage===0?'disabled':''}>← Prev</button><span class="text-xs text-muted">Page ${archPage+1} of ${total}</span><button class="btn btn-ghost btn-sm" onclick="archGo(${archPage+1})" ${archPage===total-1?'disabled':''}>Next →</button>`;
