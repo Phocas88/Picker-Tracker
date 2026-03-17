@@ -1276,6 +1276,7 @@ window.renderOpenOrders=function(){
       <td>${statusBadgeOrder(o.status)}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-ghost btn-xs" onclick="openEditOrder('${o.id}')">✏️</button>
+        ${o.status==='open'?`<button class="btn btn-danger btn-xs" style="margin-left:3px" onclick="cancelOpenOrder('${o.id}','${o.orderNum.replace(/'/g,"\\'")}','${o.pickerName.replace(/'/g,"\\'")}')">✕ Cancel</button>`:''}
         <button class="btn btn-danger btn-xs" style="margin-left:3px" onclick="initiateDeleteOrder('${o.id}','${o.orderNum.replace(/'/g,"\\'")}','${o.pickerName.replace(/'/g,"\\'")}')">🗑️</button>
       </td>
     </tr>`;
@@ -1707,14 +1708,13 @@ window.renderLive=function(){
     <th>Division</th>
     <th>Current Order</th>
     ${th('timeOnOrder','Time on Order')}
-    <th></th>
   </tr>`;
 
   const cnt=document.getElementById('liveCount');
   if(cnt)cnt.textContent=`${rows.length} picker${rows.length!==1?'s':''}${search||shiftF||statusF||divF?' (filtered)':''}`;
 
   const tbody=document.getElementById('liveTableBody');
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="12" class="text-c text-muted" style="padding:24px">No pickers match current filters</td></tr>';return;}
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="11" class="text-c text-muted" style="padding:24px">No pickers match current filters</td></tr>';return;}
   tbody.innerHTML=rows.map((r,i)=>{
     const stBadge=r.isPicking
       ?'<span class="badge bg-green" style="animation:pulse 2s infinite">● Picking</span>'
@@ -1726,8 +1726,6 @@ window.renderLive=function(){
     const elapsed=r.isPicking&&r.timeOnOrder>0
       ?`<span style="color:${r.timeOnOrder>1800000?'var(--amber)':'inherit'}">${fmtDur(r.timeOnOrder)}</span>`
       :'—';
-    const cancelBtn=r.isPicking&&r.openOrd
-      ?`<button class="btn btn-danger btn-xs" onclick="cancelOpenOrder('${r.openOrd.id}','${r.openOrd.orderNum}','${r.name}')">✕ Cancel</button>`:'';
     return`<tr style="${r.isPicking?'background:var(--green-light)':r.orders===0?'opacity:.55':''}">
       <td class="text-muted" style="font-size:11px">${i+1}</td>
       <td><strong>${r.name}</strong></td>
@@ -1740,12 +1738,11 @@ window.renderLive=function(){
       <td>${r.topDiv?divBadge(r.topDiv):'—'}</td>
       <td class="mono" style="font-size:11px">${r.isPicking&&r.openOrd?r.openOrd.orderNum:'—'}</td>
       <td>${elapsed}</td>
-      <td>${cancelBtn}</td>
     </tr>`;
   }).join('');
 };
 
-// ── CANCEL ORDER (Live Floor) ─────────────────────────
+// ── CANCEL ORDER (Open Orders screen) ─────────────────
 window.cancelOpenOrder=function(orderId,orderNum,pickerName){
   requirePin('icm','🛡️ IC Manager PIN Required',
     `Cancel ${orderNum} (${pickerName})? This will mark the order as canceled. The division will need to be notified.`,
