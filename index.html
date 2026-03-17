@@ -255,24 +255,44 @@ tbody td{padding:8px 11px;font-size:12px}
       <div class="section-title" style="margin:0">🟢 Live Floor — Today's Activity</div>
       <div id="liveShiftLabel" class="text-xs text-muted" style="margin-top:2px"></div>
     </div>
-    <div class="flex gap-8">
-      <select id="liveShiftF" onchange="renderLive()" class="w-auto"><option value="">All Shifts</option><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select>
-      <select id="liveSortF" onchange="renderLive()" class="w-auto"><option value="lines">Sort: Lines ↓</option><option value="orders">Sort: Orders ↓</option><option value="lph">Sort: Lines/Hr ↓</option><option value="name">Sort: Name A–Z</option></select>
+    <div class="flex-c gap-6" style="flex-wrap:wrap">
       <div class="text-xs text-muted flex-c gap-6" style="padding:4px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm)"><span class="conn-dot" style="animation:pulse 2s infinite"></span>Live</div>
     </div>
   </div>
+
+  <!-- Filter bar -->
+  <div class="flex-c gap-8 mb-12" style="flex-wrap:wrap">
+    <input type="text" id="liveSearch" placeholder="🔍 Filter by name…" oninput="renderLive()" style="width:190px">
+    <select id="liveShiftF" onchange="renderLive()" class="w-auto"><option value="">All Shifts</option><option value="1st">1st Shift (6am–3:30pm)</option><option value="2nd">2nd Shift (3:30pm–12am)</option></select>
+    <select id="liveStatusF" onchange="renderLive()" class="w-auto">
+      <option value="">All Status</option>
+      <option value="picking">● Currently Picking</option>
+      <option value="active">Active Today</option>
+      <option value="idle">Not Started</option>
+    </select>
+    <select id="liveDivF" onchange="renderLive()" class="w-auto" style="min-width:120px">
+      <option value="">All Divisions</option>
+      <option value="GT">TAG</option><option value="NH">NAPA</option><option value="FS">Forside</option>
+      <option value="EE">Ever Ellis</option><option value="BC">Beachcombers</option>
+      <option value="VP">VIP</option><option value="TP">Transpac</option>
+    </select>
+    <button class="btn btn-ghost btn-sm" onclick="clearLiveFilters()">Clear</button>
+  </div>
+
   <div class="grid-4 mb-14" id="liveShiftStats"></div>
+
   <div class="mb-14">
     <div class="section-title mb-8" style="color:var(--green)">🟢 Currently Picking</div>
     <div id="liveActiveGrid" class="grid-auto"></div>
   </div>
+
   <div class="card">
     <div class="card-header">
       <div class="card-title">Today's Picker Stats</div>
-      <input type="text" id="liveSearch" placeholder="🔍 Filter by name…" oninput="renderLive()" style="width:180px;font-size:12px;padding:5px 10px">
+      <div id="liveCount" class="text-xs text-muted"></div>
     </div>
     <div class="card-body" style="padding:0"><div class="table-wrap">
-      <table><thead><tr><th>#</th><th>Picker</th><th>Shift</th><th>Status</th><th>Orders</th><th>Lines</th><th>Avg Lines/Order</th><th>Lines/Hr</th><th>Current Order</th><th>Time on Order</th></tr></thead>
+      <table><thead id="liveTableHead"><tr></tr></thead>
       <tbody id="liveTableBody"></tbody></table>
     </div></div>
   </div>
@@ -694,6 +714,7 @@ const SORT={
   shortDetail: {col:'date',    dir:-1},
   dashboard:   {col:'lines',   dir:-1},
   backorder:   {col:'startTs', dir:-1},
+  live:        {col:'lines',   dir:-1},
 };
 function sortData(arr,col,dir){
   return arr.slice().sort((a,b)=>{
@@ -715,7 +736,7 @@ window.setSort=function(tableKey,col){
   const fns={
     openOrders:renderOpenOrders, archive:renderArchive, open24:renderOpen24,
     shortGroup:renderShortages, shortDetail:renderShortages,
-    dashboard:renderDashboard, backorder:renderBackorder
+    dashboard:renderDashboard, backorder:renderBackorder, live:renderLive
   };
   if(fns[tableKey])fns[tableKey]();
 };
@@ -1494,45 +1515,50 @@ window.toggleDeactivatePicker=async function(id,val){await updateDoc(doc(db,'pic
 
 // ── LIVE FLOOR ────────────────────────────────────────
 let liveSortField='lines';
-window.setLiveSort=function(f){liveSortField=f;if(document.getElementById('liveSortF'))document.getElementById('liveSortF').value=f;renderLive();};
+window.setLiveSort=function(f){liveSortField=f;renderLive();};
+window.clearLiveFilters=function(){
+  ['liveSearch','liveShiftF','liveStatusF','liveDivF'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  renderLive();
+};
 
 window.renderLive=function(){
-  const shiftF=document.getElementById('liveShiftF')?.value||'';
   const search=(document.getElementById('liveSearch')?.value||'').toLowerCase();
-  const sortF=document.getElementById('liveSortF')?.value||liveSortField;
-  liveSortField=sortF;
+  const shiftF=document.getElementById('liveShiftF')?.value||'';
+  const statusF=document.getElementById('liveStatusF')?.value||'';
+  const divF=document.getElementById('liveDivF')?.value||'';
+  const {col,dir}=SORT.live;
+
   const now=Date.now();
   const cs=getCurrentShift();
   const lbl=document.getElementById('liveShiftLabel');
   if(lbl)lbl.textContent='Current: '+shiftTimeLabel(cs);
+
   const todayOrders=ORDERS.filter(o=>o.date===todayStr());
   const activePickers=PICKERS.filter(p=>!p.archived&&!p.deactivated);
+  const BREAK_MS=50*60*1000;
+
   const pmap={};
   activePickers.forEach(p=>{
     const myOrders=todayOrders.filter(o=>o.pickerName===p.name);
     const done=myOrders.filter(o=>o.status!=='open'&&o.endTs&&o.startTs);
     const openOrd=myOrders.find(o=>o.status==='open');
     const lines=done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-    // Lines/hr: only count COMPLETED orders. Sum actual pick time (endTs-startTs).
-    // Subtract 50-min break allowance once total pick time exceeds 3 hours.
-    // Require at least 2 completed orders OR 30+ min of completed pick time before showing rate.
-    const BREAK_MS=50*60*1000;
     let pickMs=done.reduce((a,o)=>a+(o.endTs-o.startTs),0);
-    if(pickMs>3*3600000) pickMs=Math.max(pickMs-BREAK_MS, pickMs*0.7);
-    const lph=(done.length>=2||pickMs>=30*60000)&&lines>0?(lines/(pickMs/3600000)).toFixed(1):null;
-    pmap[p.name]={name:p.name,shift:p.shift,orders:done.length,lines,lph,openOrd,isPicking:!!openOrd,timeOnOrder:openOrd?(now-openOrd.startTs):0};
+    if(pickMs>3*3600000) pickMs=Math.max(pickMs-BREAK_MS,pickMs*0.7);
+    const lph=(done.length>=2||pickMs>=30*60000)&&lines>0?(lines/(pickMs/3600000)):null;
+    // Dominant division: division appearing most in today's orders
+    const divCounts={};
+    myOrders.forEach(o=>{if(o.division)divCounts[o.division]=(divCounts[o.division]||0)+1;});
+    const topDiv=Object.entries(divCounts).sort((a,b)=>b[1]-a[1])[0]?.[0]||null;
+    const avgL=done.length>0?lines/done.length:0;
+    const timeOnOrder=openOrd?(now-openOrd.startTs):0;
+    pmap[p.name]={name:p.name,shift:p.shift,orders:done.length,lines,lph,avgL,openOrd,
+      isPicking:!!openOrd,timeOnOrder,topDiv,pickMs};
   });
-  let rows=Object.values(pmap);
-  if(shiftF)rows=rows.filter(r=>r.shift===shiftF);
-  if(search)rows=rows.filter(r=>r.name.toLowerCase().includes(search));
-  rows.sort((a,b)=>{
-    if(sortF==='lines')return b.lines-a.lines;
-    if(sortF==='orders')return b.orders-a.orders;
-    if(sortF==='lph')return(parseFloat(b.lph)||0)-(parseFloat(a.lph)||0);
-    if(sortF==='name')return a.name.localeCompare(b.name);
-    return b.lines-a.lines;
-  });
-  // Shift summary
+
+  // Build full unfiltered set for shift summary cards
   const all=Object.values(pmap);
   const s1r=all.filter(r=>r.shift==='1st'),s2r=all.filter(r=>r.shift==='2nd');
   const s1L=s1r.reduce((a,r)=>a+r.lines,0),s2L=s2r.reduce((a,r)=>a+r.lines,0);
@@ -1549,34 +1575,94 @@ window.renderLive=function(){
     </div>`).join('')+`
     <div class="stat-card c-accent"><div class="stat-label">Total Today</div><div class="stat-value">${s1L+s2L}</div><div class="stat-sub">${all.length} pickers</div></div>
     <div class="stat-card c-amber"><div class="stat-label">Currently Picking</div><div class="stat-value">${s1P+s2P}</div><div class="stat-sub">active orders open</div></div>`;
-  // Currently picking cards
+
+  // Apply filters to table rows
+  let rows=all.slice();
+  if(search) rows=rows.filter(r=>r.name.toLowerCase().includes(search));
+  if(shiftF) rows=rows.filter(r=>r.shift===shiftF);
+  if(divF)   rows=rows.filter(r=>r.topDiv===divF);
+  if(statusF==='picking') rows=rows.filter(r=>r.isPicking);
+  else if(statusF==='active') rows=rows.filter(r=>r.orders>0||r.isPicking);
+  else if(statusF==='idle') rows=rows.filter(r=>!r.isPicking&&r.orders===0);
+
+  // Sort using SORT.live state (clickable headers) or dropdown fallback
+  const colMap={name:'name',shift:'shift',orders:'orders',lines:'lines',avgL:'avgL',lph:'lph',timeOnOrder:'timeOnOrder'};
+  const sortCol=colMap[col]||'lines';
+  rows=rows.slice().sort((a,b)=>{
+    let av=a[sortCol], bv=b[sortCol];
+    if(av==null)av=dir>0?Infinity:-Infinity;
+    if(bv==null)bv=dir>0?Infinity:-Infinity;
+    if(typeof av==='string') return dir*av.localeCompare(String(bv));
+    return dir*(av-bv);
+  });
+
+  // Currently picking cards (respects filters)
   const picking=rows.filter(r=>r.isPicking);
   const ag=document.getElementById('liveActiveGrid');
   if(!picking.length){
-    ag.innerHTML='<div class="text-xs text-muted" style="padding:8px 0">No pickers currently on an active order.</div>';
-  }else{
+    ag.innerHTML=`<div class="text-xs text-muted" style="padding:8px 0">${statusF==='idle'?'Filter active — idle pickers only shown.':'No pickers currently on an active order.'}</div>`;
+  } else {
     ag.innerHTML=picking.map(r=>`<div class="live-card picking">
       <div class="flex-c j-between gap-8">
-        <div><div class="live-name">${r.name}</div><div class="text-xs text-muted">${shiftBadge(r.shift)} · ${r.openOrd?.orderNum||'—'} · ${r.timeOnOrder>0?fmtDur(r.timeOnOrder):'just started'}</div></div>
+        <div>
+          <div class="live-name">${r.name}</div>
+          <div class="text-xs text-muted">${shiftBadge(r.shift)}${r.topDiv?` · ${divBadge(r.topDiv)}`:''} · <span class="mono">${r.openOrd?.orderNum||'—'}</span> · ${r.timeOnOrder>0?fmtDur(r.timeOnOrder):'just started'}</div>
+        </div>
         <span class="badge bg-green" style="animation:pulse 2s infinite;flex-shrink:0">● PICKING</span>
       </div>
       <div class="live-stats">
         <div><div class="ls-label">Lines</div><div class="ls-value">${r.lines}</div></div>
         <div><div class="ls-label">Orders</div><div class="ls-value">${r.orders}</div></div>
-        <div><div class="ls-label">Lines/Hr</div><div class="ls-value">${r.lph||'—'}</div></div>
-      </div></div>`).join('');
+        <div><div class="ls-label">Lines/Hr</div><div class="ls-value">${r.lph?r.lph.toFixed(1):'—'}</div></div>
+      </div>
+    </div>`).join('');
   }
-  // Full table
+
+  // Sortable table
+  const th=(c,l)=>thSort('live',c,l,col,dir);
+  const thead=document.getElementById('liveTableHead');
+  if(thead)thead.innerHTML=`<tr>
+    <th style="width:32px">#</th>
+    ${th('name','Picker')}
+    ${th('shift','Shift')}
+    <th>Status</th>
+    ${th('orders','Orders')}
+    ${th('lines','Lines')}
+    ${th('avgL','Avg Lines/Order')}
+    ${th('lph','Lines/Hr')}
+    <th>Division</th>
+    <th>Current Order</th>
+    ${th('timeOnOrder','Time on Order')}
+  </tr>`;
+
+  const cnt=document.getElementById('liveCount');
+  if(cnt)cnt.textContent=`${rows.length} picker${rows.length!==1?'s':''}${search||shiftF||statusF||divF?' (filtered)':''}`;
+
   const tbody=document.getElementById('liveTableBody');
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="10" class="text-c text-muted" style="padding:24px">No pickers found</td></tr>';return;}
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="11" class="text-c text-muted" style="padding:24px">No pickers match current filters</td></tr>';return;}
   tbody.innerHTML=rows.map((r,i)=>{
-    const stBadge=r.isPicking?'<span class="badge bg-green" style="animation:pulse 2s infinite">● Picking</span>':r.orders>0?'<span class="badge bg-gray">Done</span>':'<span class="badge bg-gray">—</span>';
-    const avgL=r.orders>0?(r.lines/r.orders).toFixed(1):'—';
-    const elapsed=r.isPicking&&r.timeOnOrder>0?`<span style="color:${r.timeOnOrder>1800000?'var(--amber)':'inherit'}">${fmtDur(r.timeOnOrder)}</span>`:'—';
-    return`<tr style="${r.isPicking?'background:var(--green-light)':''}">
-      <td class="text-muted bold">${i+1}</td><td><strong>${r.name}</strong></td><td>${shiftBadge(r.shift)}</td><td>${stBadge}</td>
-      <td>${r.orders}</td><td><strong>${r.lines}</strong></td><td>${avgL}</td><td><strong>${r.lph||'—'}</strong></td>
-      <td class="mono" style="font-size:11px">${r.isPicking&&r.openOrd?r.openOrd.orderNum:'—'}</td><td>${elapsed}</td>
+    const stBadge=r.isPicking
+      ?'<span class="badge bg-green" style="animation:pulse 2s infinite">● Picking</span>'
+      :r.orders>0?'<span class="badge bg-gray">Done</span>'
+      :'<span class="badge bg-gray" style="opacity:.5">—</span>';
+    const avgLStr=r.orders>0?r.avgL.toFixed(1):'—';
+    const lphStr=r.lph?r.lph.toFixed(1):'—';
+    const lphColor=r.lph?(r.lph>=20?'var(--green)':r.lph>=12?'var(--amber)':'var(--red)'):'inherit';
+    const elapsed=r.isPicking&&r.timeOnOrder>0
+      ?`<span style="color:${r.timeOnOrder>1800000?'var(--amber)':'inherit'}">${fmtDur(r.timeOnOrder)}</span>`
+      :'—';
+    return`<tr style="${r.isPicking?'background:var(--green-light)':r.orders===0?'opacity:.55':''}">
+      <td class="text-muted" style="font-size:11px">${i+1}</td>
+      <td><strong>${r.name}</strong></td>
+      <td>${shiftBadge(r.shift)}</td>
+      <td>${stBadge}</td>
+      <td>${r.orders}</td>
+      <td><strong>${r.lines}</strong></td>
+      <td>${avgLStr}</td>
+      <td><strong style="color:${lphColor}">${lphStr}</strong></td>
+      <td>${r.topDiv?divBadge(r.topDiv):'—'}</td>
+      <td class="mono" style="font-size:11px">${r.isPicking&&r.openOrd?r.openOrd.orderNum:'—'}</td>
+      <td>${elapsed}</td>
     </tr>`;
   }).join('');
 };
