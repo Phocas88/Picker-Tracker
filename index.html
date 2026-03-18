@@ -921,12 +921,15 @@ const tsMs     = t=>{if(!t)return null;if(typeof t==='object'&&t.toMillis)return
 const fmtTime  = ms=>ms?new Date(ms).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}):'—';
 const fmtDate  = ms=>ms?new Date(ms).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
 const fmtDur   = ms=>{if(!ms||ms<0)return'—';const m=Math.round(ms/60000);return m<60?m+' min':(m/60).toFixed(1)+' hr'};
-const todayStr = ()=>new Date().toISOString().slice(0,10);
-const wkStart  = ()=>{const d=new Date();d.setDate(d.getDate()-d.getDay());d.setHours(0,0,0,0);return d.getTime()};
-const moStart  = ()=>{const d=new Date();d.setDate(1);d.setHours(0,0,0,0);return d.getTime()};
+// Operational day starts at 6:00am. Before 6am, we're still on the previous op-day.
+const opDayStart = ()=>{const d=new Date();if(d.getHours()<6)d.setDate(d.getDate()-1);d.setHours(6,0,0,0);return d.getTime();};
+const opDayStr   = ()=>{const d=new Date(opDayStart());return d.toISOString().slice(0,10);};
+const todayStr   = opDayStr; // keep todayStr as alias so order creation uses op-day date
+const wkStart    = ()=>{const d=new Date();d.setDate(d.getDate()-d.getDay());d.setHours(0,0,0,0);return d.getTime()};
+const moStart    = ()=>{const d=new Date();d.setDate(1);d.setHours(0,0,0,0);return d.getTime()};
 function byPeriod(arr,p){
-  if(p==='today')return arr.filter(o=>o.date===todayStr());
-  if(p==='yesterday'){const d=new Date();d.setDate(d.getDate()-1);const y=d.toISOString().slice(0,10);return arr.filter(o=>o.date===y);}
+  if(p==='today'){const s=opDayStart();const e=s+18*3600000;return arr.filter(o=>o.startTs>=s&&o.startTs<e);}
+  if(p==='yesterday'){const s=opDayStart()-24*3600000;const e=s+18*3600000;return arr.filter(o=>o.startTs>=s&&o.startTs<e);}
   if(p==='week')return arr.filter(o=>o.startTs>=wkStart());
   if(p==='lastweek'){const e=wkStart();const s=e-7*86400000;return arr.filter(o=>o.startTs>=s&&o.startTs<e);}
   if(p==='month')return arr.filter(o=>o.startTs>=moStart());
@@ -1159,7 +1162,7 @@ async function doSubmit({orderNum,lines,pickerName,shift}){
     // Find open order for THIS picker – same order number, any date
     const openOrd=ORDERS.find(o=>o.orderNum===orderNum&&o.pickerName.toLowerCase()===norm&&o.status==='open');
     if(openOrd){
-      if(openOrd.date!==todayStr()){
+      if(openOrd.startTs<opDayStart()){
         await updateDoc(doc(db,'orders',openOrd.id),{date:todayStr(),resumedAt:now,resumedNote:`Resumed from ${openOrd.date}`});
         showSR('sr-open','📋 Order Resumed',`${orderNum} was started on ${openOrd.date} and is now being completed. Scan again to close.`);
         clearScanForm();return;
@@ -1189,7 +1192,7 @@ async function doSubmit({orderNum,lines,pickerName,shift}){
     }
 
     // DUPLICATE CHECK: completed today
-    const existingToday=ORDERS.find(o=>o.orderNum===orderNum&&o.date===todayStr()&&o.status!=='open');
+    const existingToday=ORDERS.find(o=>o.orderNum===orderNum&&o.startTs>=opDayStart()&&o.status!=='open');
     if(existingToday){
       showSR('sr-warn','⚠️ Duplicate Order',`${orderNum} was already completed today. Order not created.`);
       clearScanForm();return;
@@ -1480,7 +1483,7 @@ function showSR(cls,title,detail){const el=document.getElementById('scanResult')
 
 // ── TODAY FEED ───────────────────────────────────────
 function renderTodayFeed(){
-  const list=ORDERS.filter(o=>o.date===todayStr()).slice().sort((a,b)=>b.startTs-a.startTs);
+  const list=ORDERS.filter(o=>o.startTs>=opDayStart()).slice().sort((a,b)=>b.startTs-a.startTs);
   const el=document.getElementById('todayFeed');
   if(!list.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No activity today yet</div></div>';return;}
   el.innerHTML=list.map(o=>`<div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:9px">
@@ -2044,7 +2047,7 @@ function renderPickers(){
 
 function pickerCardHTML(p,now,isDeactivated){
   const mine=ORDERS.filter(o=>o.pickerName===p.name&&o.status!=='open');
-  const td=mine.filter(o=>o.date===todayStr());
+  const td=mine.filter(o=>o.startTs>=opDayStart());
   const tdL=td.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
   const totL=mine.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
   // Lines/hr: sum actual pick durations of COMPLETED today orders only
@@ -2198,7 +2201,7 @@ window.renderLive=function(){
   const lbl=document.getElementById('liveShiftLabel');
   if(lbl)lbl.textContent='Current: '+shiftTimeLabel(cs);
 
-  const todayOrders=ORDERS.filter(o=>o.date===todayStr());
+  const todayOrders=ORDERS.filter(o=>o.startTs>=opDayStart());
   const activePickers=PICKERS.filter(p=>!p.archived&&!p.deactivated);
   const BREAK_MS=50*60*1000;
 
@@ -3080,7 +3083,7 @@ window.doConfirmActive=async()=>{if(!alertPickerId)return;await updateDoc(doc(db
 function updateBadges(){
   const now=Date.now();
   const setB=(id,n)=>{const b=document.getElementById(id);if(!b)return;if(n>0){b.textContent=n;b.style.display='inline-flex';}else b.style.display='none';};
-  setB('bLive',ORDERS.filter(o=>o.status==='open'&&o.date===todayStr()).length);
+  setB('bLive',ORDERS.filter(o=>o.status==='open'&&o.startTs>=opDayStart()).length);
   setB('bOpen',ORDERS.filter(o=>o.status==='open').length);
   setB('b24',ORDERS.filter(o=>o.status==='open'&&(now-o.startTs)>86400000).length);
   setB('bBO',ORDERS.filter(o=>o.status==='backorder').length);
