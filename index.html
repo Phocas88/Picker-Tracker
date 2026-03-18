@@ -795,9 +795,9 @@ tbody td{padding:8px 11px;font-size:12px}
         <div style="display:flex;gap:6px;flex-wrap:nowrap;align-items:center" id="editStartPicker"></div>
       </div>
       <div class="form-group" id="editOrderEndGroup">
-        <label>Close Date &amp; Time</label>
+        <label id="editOrderEndLabel">Close Date &amp; Time</label>
         <div style="display:flex;gap:6px;flex-wrap:nowrap;align-items:center" id="editEndPicker"></div>
-        <div class="text-xs text-muted" style="margin-top:4px">Leave blank / clear to keep order open</div>
+        <div class="text-xs text-muted" style="margin-top:4px" id="editOrderEndHint">Leave blank / clear to keep order open</div>
       </div>
       <div class="form-group">
         <label>Total Lines on Order</label>
@@ -1657,7 +1657,7 @@ window.openEditOrder=function(orderId){
   modal._pausePicker=pausePicker;
 
   startPicker.set(o.startTs);
-  endPicker.set(o.endTs||null);
+  endPicker.set(isPaused ? (o.pausedAt||null) : (o.endTs||null));
   pausePicker.set(o.pausedAt||Date.now());
 
   updateEditOrderDuration();
@@ -1678,7 +1678,11 @@ window.openEditOrder=function(orderId){
   document.getElementById('editOrderPauseSection').style.display=isPaused?'none':'block';
   document.getElementById('editOrderUnpauseSection').style.display=isPaused?'block':'none';
   const endGroup=document.getElementById('editOrderEndGroup');
-  if(endGroup) endGroup.style.display=(o.status==='open'||isPaused)?'none':'block';
+  if(endGroup) endGroup.style.display=o.status==='open'?'none':'block';
+  const endLabel=document.getElementById('editOrderEndLabel');
+  if(endLabel) endLabel.textContent=isPaused?'Stop / Pause Time':'Close Date & Time';
+  const endHint=document.getElementById('editOrderEndHint');
+  if(endHint) endHint.textContent=isPaused?'When the picker stopped for this session':'Clear to revert order to open';
 
   openModal('editOrderModal');
 };
@@ -1763,23 +1767,25 @@ window.saveEditOrder=async function(){
   const endTs=modal?._endPicker?.get()||null;
   const lines=parseInt(document.getElementById('editOrderLines').value)||0;
   if(!startTs){alert('Start date and time is required.');return;}
-  if(endTs&&endTs<startTs){alert('End time cannot be before start time.');return;}
+  if(endTs&&endTs<startTs){alert('Stop time cannot be before start time.');return;}
   const btn=document.getElementById('editOrderSaveBtn');btn.disabled=true;
   try{
     const o=ORDERS.find(x=>x.id===orderId);
     const update={startTs,lines};
-    if(endTs){
-      update.endTs=endTs;
-      if(o&&(o.status==='open'||o.status==='paused')) update.status='closed';
-      const hasShortages=SHORTAGES.some(s=>s.orderId===orderId);
-      if(!hasShortages) update.pickedLines=lines;
+    if(o?.status==='paused'){
+      // For paused orders: stop time → pausedAt (not endTs)
+      if(endTs) update.pausedAt=endTs;
     } else {
-      update.endTs=null;
-      if(o&&o.status==='open') update.status='open';
-    }
-    if(o&&o.status==='paused'){
-      const pauseTs=modal?._pausePicker?.get();
-      if(pauseTs) update.pausedAt=pauseTs;
+      // For closed/completed orders: stop time → endTs
+      if(endTs){
+        update.endTs=endTs;
+        if(o?.status==='open') update.status='closed';
+        const hasShortages=SHORTAGES.some(s=>s.orderId===orderId);
+        if(!hasShortages) update.pickedLines=lines;
+      } else {
+        update.endTs=null;
+        if(o?.status==='open') update.status='open';
+      }
     }
     await updateDoc(doc(db,'orders',orderId),update);
     closeModal('editOrderModal');
