@@ -1192,10 +1192,10 @@ async function doSubmit({orderNum,lines,pickerName,shift}){
       return;
     }
 
-    // DUPLICATE CHECK: completed today
-    const existingToday=ORDERS.find(o=>o.orderNum===orderNum&&o.startTs>=opDayStart()&&o.status!=='open');
+    // DUPLICATE CHECK: same picker already completed this order today
+    const existingToday=ORDERS.find(o=>o.orderNum===orderNum&&o.pickerName.toLowerCase()===norm&&o.startTs>=opDayStart()&&o.status!=='open');
     if(existingToday){
-      showSR('sr-warn','⚠️ Duplicate Order',`${orderNum} was already completed today. Order not created.`);
+      showSR('sr-warn','⚠️ Duplicate Order',`${orderNum} was already completed today by ${pickerName}. Order not created.`);
       clearScanForm();return;
     }
     // Open by a DIFFERENT picker?
@@ -1420,13 +1420,14 @@ window.clearShortageEntry=function(){
 
 window.recalcShortPreview=function(){
   if(!shortageTarget)return;
-  const entryQty=parseInt(document.getElementById('shortQty')?.value)||0;
-  const listQty=shortageItemsCollected.reduce((a,i)=>a+i.qty,0);
-  updateShortPickedPreview(shortageTarget.order.lines, listQty+entryQty);
+  // Each shortage item = 1 shorted line regardless of qty
+  const entryInProgress=document.getElementById('shortProd')?.value.trim()?1:0;
+  const shortedLines=shortageItemsCollected.length+entryInProgress;
+  updateShortPickedPreview(shortageTarget.order.lines, shortedLines);
 };
 
-function updateShortPickedPreview(total,shorted){
-  const picked=Math.max(0,total-shorted);
+function updateShortPickedPreview(total,shortedLines){
+  const picked=Math.max(0,total-shortedLines);
   document.getElementById('shortPickedPrev').textContent=`${picked} of ${total}`;
 }
 
@@ -1451,9 +1452,9 @@ window.submitWithShortage=async function(){
   const{order,closeTs}=shortageTarget; shortageTarget=null;
   closeModal('shortageModal');
 
-  // pickedLines = order lines MINUS total qty shorted
-  const totalShort=shortageItemsCollected.reduce((a,i)=>a+i.qty,0);
-  const pickedLines=Math.max(0,(order.lines||0)-totalShort);
+  // pickedLines = order lines MINUS number of shorted line items (each shortage = 1 line, regardless of qty)
+  const shortedLines=shortageItemsCollected.length;
+  const pickedLines=Math.max(0,(order.lines||0)-shortedLines);
 
   if(shortageItemsCollected.length>0){
     for(const item of shortageItemsCollected){
