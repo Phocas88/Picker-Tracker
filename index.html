@@ -194,7 +194,6 @@ tbody td{padding:8px 11px;font-size:12px}
   <div class="nav-tab" onclick="showPage('shortages',this)">⚠️ Shortages <span class="nav-badge" id="bShort" style="display:none"></span></div>
   <div class="nav-tab" onclick="showPage('open24',this)">🕐 &gt;24h <span class="nav-badge" id="b24" style="display:none"></span></div>
   <div class="nav-tab" onclick="showPage('archive',this)">🗄️ Archive</div>
-  <div class="nav-tab" onclick="showPage('logins',this)">👤 Login Log</div>
   <div class="nav-tab" onclick="showPage('alerts',this)">🔔 Alerts <span class="nav-badge" id="bAl" style="display:none"></span></div>
 </div>
 
@@ -212,9 +211,10 @@ tbody td{padding:8px 11px;font-size:12px}
         <div class="form-group">
           <label>Picker Name</label>
           <div style="position:relative">
-            <input type="text" id="scanPicker" placeholder="Select or type name…" autocomplete="off" oninput="filterPickerDropdown()" onfocus="showPickerDropdown()" onblur="hidePickerDropdownDelayed()">
-            <div id="pickerDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);z-index:200;max-height:200px;overflow-y:auto;margin-top:2px"></div>
+            <input type="text" id="scanPicker" placeholder="Select from roster below…" autocomplete="off" readonly onfocus="showPickerDropdown()" onblur="hidePickerDropdownDelayed()" style="cursor:pointer;background:var(--surface2)">
+            <div id="pickerDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);z-index:200;max-height:240px;overflow-y:auto;margin-top:2px"></div>
           </div>
+          <div class="text-xs text-muted" style="margin-top:3px">Must be on roster. Add new pickers in the 👷 Pickers screen.</div>
           <datalist id="pickerList"></datalist>
         </div>
         <button class="btn btn-primary btn-lg" style="width:100%" id="submitBtn" onclick="processOrder()">✅ Submit</button>
@@ -231,20 +231,57 @@ tbody td{padding:8px 11px;font-size:12px}
 
 <!-- DASHBOARD -->
 <div class="page" id="page-dashboard">
-  <div class="flex-c j-between mb-16 gap-10" style="flex-wrap:wrap">
-    <div class="section-title" style="margin:0">Performance Overview</div>
-    <div class="flex gap-8">
-      <select id="dashPeriod" onchange="renderDashboard()" class="w-auto"><option value="today">Today</option><option value="week">This Week</option><option value="month">This Month</option><option value="all">All Time</option></select>
+  <div class="flex-c j-between mb-12 gap-10" style="flex-wrap:wrap">
+    <div>
+      <div class="section-title" style="margin:0">Operations Dashboard</div>
+      <div id="dashDateLabel" class="text-xs text-muted" style="margin-top:2px"></div>
+    </div>
+    <div class="flex gap-8" style="flex-wrap:wrap">
+      <select id="dashPeriod" onchange="renderDashboard()" class="w-auto">
+        <option value="today">Today</option>
+        <option value="yesterday">Yesterday</option>
+        <option value="week">This Week</option>
+        <option value="lastweek">Last Week</option>
+        <option value="month">This Month</option>
+        <option value="all">All Time</option>
+      </select>
       <select id="dashShift" onchange="renderDashboard()" class="w-auto"><option value="all">All Shifts</option><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select>
       <button class="btn btn-ghost btn-sm no-print" onclick="showPage('print',this)">🖨️ Print KPI</button>
     </div>
   </div>
-  <div class="grid-4 mb-16" id="dashStats"></div>
-  <div class="grid-2 mb-13">
-    <div class="card"><div class="card-header"><div class="card-title">Lines by Shift</div></div><div class="card-body" id="dashShiftBreak"></div></div>
+
+  <!-- Top KPI stat cards -->
+  <div id="dashStats" class="mb-12" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px"></div>
+
+  <!-- Always-visible Daily vs Weekly avg strip -->
+  <div class="card mb-12" id="dashAvgStrip">
+    <div class="card-header">
+      <div class="card-title">📊 Daily &amp; Weekly Averages — All Active Pickers</div>
+      <div class="text-xs text-muted">Today vs this week avg · auto-updates</div>
+    </div>
+    <div class="card-body" style="padding:0"><div class="table-wrap">
+      <table><thead id="dashAvgHead"><tr></tr></thead><tbody id="dashAvgBody"></tbody></table>
+    </div></div>
+  </div>
+
+  <!-- Shift + Division -->
+  <div class="grid-2 mb-12">
+    <div class="card"><div class="card-header"><div class="card-title">Shift Comparison</div></div><div class="card-body" id="dashShiftBreak"></div></div>
     <div class="card"><div class="card-header"><div class="card-title">Division Breakdown</div></div><div class="card-body" id="dashDivBreak"></div></div>
   </div>
-  <div class="card"><div class="card-header"><div class="card-title">Picker Performance</div></div>
+
+  <!-- Efficiency & Alerts row -->
+  <div class="grid-2 mb-12">
+    <div class="card"><div class="card-header"><div class="card-title">⚡ Efficiency Flags</div><div class="text-xs text-muted">Pickers needing attention</div></div><div class="card-body" id="dashFlags" style="max-height:220px;overflow-y:auto"></div></div>
+    <div class="card"><div class="card-header"><div class="card-title">📋 Order Velocity</div><div class="text-xs text-muted">Orders/hr by shift over this period</div></div><div class="card-body" id="dashVelocity"></div></div>
+  </div>
+
+  <!-- Picker performance table -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Picker Performance Detail</div>
+      <div class="text-xs text-muted" id="dashPickerCompareLabel"></div>
+    </div>
     <div class="card-body" style="padding:0"><div class="table-wrap"><table><thead id="dashPickerHead"><tr></tr></thead><tbody id="dashPickerBody"></tbody></table></div></div>
   </div>
 </div>
@@ -323,7 +360,10 @@ tbody td{padding:8px 11px;font-size:12px}
       <div class="section-title" style="margin:0">Picker Roster</div>
       <div id="pickerRosterShiftNote" class="text-xs text-muted" style="margin-top:2px"></div>
     </div>
-    <button class="btn btn-primary btn-sm" onclick="openModal('addPickerModal')">+ Add Picker</button>
+    <div class="flex gap-8">
+      <button class="btn btn-ghost btn-sm" onclick="openMergeModal()">🔗 Merge Profiles</button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('addPickerModal')">+ Add Picker</button>
+    </div>
   </div>
   <div id="shift1stSection" class="mb-20">
     <div class="flex-c gap-8 mb-10">
@@ -487,13 +527,6 @@ tbody td{padding:8px 11px;font-size:12px}
   </div></div>
 </div>
 
-<!-- LOGIN LOG -->
-<div class="page" id="page-logins">
-  <div class="section-title mb-12">Login Activity Log</div>
-  <div class="card"><div class="card-body" style="padding:0">
-    <div class="table-wrap"><table><thead><tr><th>Name</th><th>Role</th><th>Date</th><th>Time</th><th>Device</th></tr></thead><tbody id="loginLogBody"></tbody></table></div>
-  </div></div>
-</div>
 
 <!-- ALERTS -->
 <div class="page" id="page-alerts">
@@ -684,6 +717,27 @@ tbody td{padding:8px 11px;font-size:12px}
   </div>
 </div>
 
+<div class="modal-overlay modal-sm" id="mergePickerModal">
+  <div class="modal"><div class="modal-head"><div class="modal-title">🔗 Merge Picker Profiles</div><span class="modal-x" onclick="closeModal('mergePickerModal')">×</span></div>
+    <div class="modal-body">
+      <div class="alert alert-amber mb-12" style="font-size:12px">All orders and shortages from the <strong>duplicate</strong> profile will be moved to the <strong>keep</strong> profile, then the duplicate will be deleted.</div>
+      <div class="form-group">
+        <label>Profile to KEEP <span class="text-xs text-muted">(this name survives)</span></label>
+        <select id="mergeKeep" style="font-size:13px"><option value="">— Select picker —</option></select>
+      </div>
+      <div class="form-group">
+        <label>Profile to REMOVE <span class="text-xs text-muted">(duplicate — will be deleted)</span></label>
+        <select id="mergeDrop" style="font-size:13px"><option value="">— Select picker —</option></select>
+      </div>
+      <div id="mergePreview" class="text-xs text-muted" style="margin-top:4px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('mergePickerModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="submitMergePickers()">🔗 Merge &amp; Delete Duplicate</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay modal-sm" id="addPickerModal">
   <div class="modal"><div class="modal-head"><div class="modal-title">Add New Picker</div><span class="modal-x" onclick="closeModal('addPickerModal')">×</span></div>
     <div class="modal-body">
@@ -823,7 +877,7 @@ function setPin(k,v){localStorage.setItem('wpt_pin_'+k,v)}
 let currentUser = null;
 
 // ── CACHE ────────────────────────────────────────────
-let ORDERS=[], PICKERS=[], SHORTAGES=[], LOGIN_LOG=[];
+let ORDERS=[], PICKERS=[], SHORTAGES=[];
 
 // ── SORT STATE ───────────────────────────────────────
 const SORT={
@@ -870,7 +924,14 @@ const fmtDur   = ms=>{if(!ms||ms<0)return'—';const m=Math.round(ms/60000);retu
 const todayStr = ()=>new Date().toISOString().slice(0,10);
 const wkStart  = ()=>{const d=new Date();d.setDate(d.getDate()-d.getDay());d.setHours(0,0,0,0);return d.getTime()};
 const moStart  = ()=>{const d=new Date();d.setDate(1);d.setHours(0,0,0,0);return d.getTime()};
-function byPeriod(arr,p){if(p==='today')return arr.filter(o=>o.date===todayStr());if(p==='week')return arr.filter(o=>o.startTs>=wkStart());if(p==='month')return arr.filter(o=>o.startTs>=moStart());return arr}
+function byPeriod(arr,p){
+  if(p==='today')return arr.filter(o=>o.date===todayStr());
+  if(p==='yesterday'){const d=new Date();d.setDate(d.getDate()-1);const y=d.toISOString().slice(0,10);return arr.filter(o=>o.date===y);}
+  if(p==='week')return arr.filter(o=>o.startTs>=wkStart());
+  if(p==='lastweek'){const e=wkStart();const s=e-7*86400000;return arr.filter(o=>o.startTs>=s&&o.startTs<e);}
+  if(p==='month')return arr.filter(o=>o.startTs>=moStart());
+  return arr;
+}
 function divBadge(code){if(!code)return'<span class="badge bg-gray">—</span>';return`<span class="badge ${DIV_BADGE[code]||'bg-gray'}">${DIV[code]?.name||code}</span>`}
 function shiftBadge(s){return`<span class="badge ${s==='1st'?'bg-blue':'bg-purple'}">${s}</span>`}
 function statusBadgeOrder(s){const m={open:'<span class="badge bg-blue">● Open</span>',paused:'<span class="badge bg-purple">⏸ Paused</span>',handoff_done:'<span class="badge bg-teal">🤝 Handed Off</span>',closed:'<span class="badge bg-green">✓ Done</span>',backorder:'<span class="badge bg-amber">🔄 Back Order</span>',backorder_done:'<span class="badge bg-teal">✓ B/O Done</span>',partial_located:'<span class="badge bg-orange">⚡ Ship Partial</span>',backorder_redrop:'<span class="badge bg-purple">🔁 B/O Redrop</span>',order_canceled:'<span class="badge bg-red">✕ Canceled</span>',ship_incomplete:'<span class="badge bg-red">✕ Canceled</span>'};return m[s]||'<span class="badge bg-gray">—</span>'}
@@ -952,7 +1013,6 @@ async function loginSuccess(name){
   document.getElementById('mainApp').style.display='block';
   document.getElementById('userNameDisplay').textContent=name;
   document.getElementById('userAvatar').textContent=currentUser.initials;
-  try{await addDoc(collection(db,'loginLog'),{name,role:'user',ts:Date.now(),date:todayStr(),ua:navigator.userAgent.slice(0,80)});}catch(e){}
 }
 
 // ── PIN PROMPT SYSTEM ────────────────────────────────
@@ -1063,10 +1123,6 @@ function startListeners(){
     SHORTAGES=snap.docs.map(d=>{const x=d.data();return{id:d.id,orderId:x.orderId,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,date:x.date,product:x.product,bin:x.bin,qty:x.qty||0,resolution:x.resolution||'pending',notes:x.notes||'',startTs:tsMs(x.startTs),qtyLocated:x.qtyLocated??null,qtyRemaining:x.qtyRemaining??null,partialNote:x.partialNote||'',resolvedAt:tsMs(x.resolvedAt),processed:x.processed||false,processedAt:tsMs(x.processedAt)||null}});
     updateBadges();const pg=activePage();if(pg==='shortages')renderShortages();if(pg==='backorder')renderBackorder();
   });
-  onSnapshot(collection(db,'loginLog'),snap=>{
-    LOGIN_LOG=snap.docs.map(d=>{const x=d.data();return{id:d.id,name:x.name,role:x.role,ts:tsMs(x.ts),date:x.date,ua:x.ua}}).sort((a,b)=>b.ts-a.ts);
-    if(activePage()==='logins')renderLoginLog();
-  });
 }
 
 const activePage=()=>document.querySelector('.page.active')?.id?.replace('page-','')||'';
@@ -1081,6 +1137,8 @@ window.processOrder=function(){
   const pickerRaw=document.getElementById('scanPicker').value.trim();
   const shift=document.getElementById('scanShift').value;
   if(!orderRaw||!pickerRaw){showSR('sr-warn','⚠️ Missing Info','Enter order number and picker name.');return;}
+  const pickerExists=PICKERS.some(p=>!p.deactivated&&!p.archived&&p.name.toLowerCase()===pickerRaw.toLowerCase());
+  if(!pickerExists){showSR('sr-warn','⚠️ Unknown Picker',`"${pickerRaw}" is not on the roster. Add them in the Pickers screen first, then try again.`);return;}
   doSubmit({orderNum:orderRaw.toUpperCase(),lines:linesVal,pickerName:pickerRaw,shift});
 };
 
@@ -1090,10 +1148,13 @@ async function doSubmit({orderNum,lines,pickerName,shift}){
   const now=Date.now();
   busy=true;document.getElementById('submitBtn').disabled=true;
   try{
-    // Upsert picker
+    // Require picker to exist on roster — no creating new pickers from scan screen
     const ep=PICKERS.find(p=>p.name.toLowerCase()===norm);
-    if(!ep){await addDoc(collection(db,'pickers'),{name:pickerName,shift,addedTs:now,lastActiveTs:now,archived:false});}
-    else{await updateDoc(doc(db,'pickers',ep.id),{lastActiveTs:now});}
+    if(!ep){
+      showSR('sr-warn','⚠️ Picker Not Found',`"${pickerName}" is not on the roster. Add them in the 👷 Pickers screen first.`);
+      return;
+    }
+    await updateDoc(doc(db,'pickers',ep.id),{lastActiveTs:now});
 
     // Find open order for THIS picker – same order number, any date
     const openOrd=ORDERS.find(o=>o.orderNum===orderNum&&o.pickerName.toLowerCase()===norm&&o.status==='open');
@@ -1160,6 +1221,19 @@ async function doSubmit({orderNum,lines,pickerName,shift}){
   finally{busy=false;document.getElementById('submitBtn').disabled=false;}
 }
 
+
+// ── LOCK PICKER FIELD TO EXISTING PICKERS ONLY ──────
+window.lockPickerField=function(){
+  const input=document.getElementById('scanPicker');
+  if(!input)return;
+  const val=input.value.trim();
+  const exists=PICKERS.some(p=>!p.deactivated&&p.name.toLowerCase()===val.toLowerCase());
+  if(val&&!exists){
+    input.value='';
+    showSR('sr-warn','⚠️ Unknown Picker',`"${val}" is not on the roster. Add them in the Picker screen first.`);
+  }
+  if(input)input.setAttribute('readonly','');
+};
 // ── ORDER HANDOFF / PAUSE ─────────────────────────────
 let _handoffOrderId=null;
 
@@ -1665,63 +1739,253 @@ async function confirmDeleteOrder(orderId,orderNum,pickerName){
 window.renderDashboard=function(){
   const p=document.getElementById('dashPeriod').value;
   const s=document.getElementById('dashShift').value;
-  let orders=byPeriod(ORDERS,p);
-  if(s!=='all')orders=orders.filter(o=>o.shift===s);
-  const done=orders.filter(o=>o.status!=='open');
-  const totalLines=done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-  // Team lines/hr: total lines / (earliest start → latest end across all done orders)
-  const allStarts=done.map(o=>o.startTs).filter(Boolean);
-  const allEnds=done.map(o=>o.endTs).filter(Boolean);
-  const teamSpanMs=(allStarts.length&&allEnds.length)?Math.max(...allEnds)-Math.min(...allStarts):0;
-  const lph=teamSpanMs>0&&totalLines>0?(totalLines/(teamSpanMs/3600000)).toFixed(1):'—';
-  document.getElementById('dashStats').innerHTML=`
-    <div class="stat-card c-accent"><div class="stat-label">Orders Completed</div><div class="stat-value">${done.length}</div><div class="stat-sub">${p}</div></div>
-    <div class="stat-card c-green"><div class="stat-label">Total Lines Picked</div><div class="stat-value">${totalLines}</div><div class="stat-sub">credited lines</div></div>
-    <div class="stat-card c-amber"><div class="stat-label">Team Lines/Hr</div><div class="stat-value">${lph}</div><div class="stat-sub">lines ÷ picker-hours</div></div>
-    <div class="stat-card c-red"><div class="stat-label">Open Orders</div><div class="stat-value">${orders.filter(o=>o.status==='open').length}</div><div class="stat-sub">in progress</div></div>
-  `;
-  const s1=done.filter(o=>o.shift==='1st').reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-  const s2=done.filter(o=>o.shift==='2nd').reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-  const mxS=Math.max(s1,s2,1);
-  document.getElementById('dashShiftBreak').innerHTML=`<div class="div-bar"><div class="div-bar-head"><div class="div-bar-label">1st Shift</div><div>${s1} lines</div></div><div class="div-bar-track"><div class="div-bar-fill" style="width:${(s1/mxS)*100}%;background:#1d6ef5"></div></div></div><div class="div-bar"><div class="div-bar-head"><div class="div-bar-label">2nd Shift</div><div>${s2} lines</div></div><div class="div-bar-track"><div class="div-bar-fill" style="width:${(s2/mxS)*100}%;background:#7c3aed"></div></div></div>`;
-  const dt={};done.forEach(o=>{const k=o.division||'UNK';dt[k]=(dt[k]||0)+(o.pickedLines||o.lines||0);});
-  const mxD=Math.max(...Object.values(dt),1);
-  document.getElementById('dashDivBreak').innerHTML=Object.entries(dt).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="div-bar"><div class="div-bar-head"><div class="div-bar-label">${DIV[k]?.name||k}</div><div>${v}</div></div><div class="div-bar-track"><div class="div-bar-fill" style="width:${(v/mxD)*100}%;background:${DIV[k]?.color||'#8b93a7'}"></div></div></div>`).join('')||'<div class="text-muted text-xs">No data</div>';
-  const deactivatedNames=new Set(PICKERS.filter(p=>p.deactivated).map(p=>p.name));
-  const pm={};
-  orders.forEach(o=>{
-    if(deactivatedNames.has(o.pickerName))return;
-    if(!pm[o.pickerName])pm[o.pickerName]={shift:o.shift,orders:0,lines:0,shorts:0,starts:[],ends:[]};
-    if(o.status!=='open'){
+  const BREAK_MS=50*60*1000;
+  const pLabels={today:'Today',yesterday:'Yesterday',week:'This Week',lastweek:'Last Week',month:'This Month',all:'All Time'};
+  const lbl=document.getElementById('dashDateLabel');
+  if(lbl)lbl.textContent=pLabels[p]||p;
+
+  // Working days Mon–today (capped 1–5)
+  const dow=new Date().getDay();
+  const workDays=Math.max(1,dow===0?5:dow===6?5:dow);
+
+  const deactivatedNames=new Set(PICKERS.filter(px=>px.deactivated).map(px=>px.name));
+
+  function buildPM(ordArr){
+    const pm={};
+    ordArr.forEach(o=>{
+      if(deactivatedNames.has(o.pickerName))return;
+      if(!pm[o.pickerName])pm[o.pickerName]={shift:o.shift,orders:0,lines:0,pickMs:0};
+      const counted=['closed','backorder_done','partial_located','backorder_redrop','order_canceled','handoff_done','paused'];
+      if(!counted.includes(o.status))return;
       pm[o.pickerName].orders++;
       pm[o.pickerName].lines+=(o.pickedLines||o.lines||0);
-      if(o.startTs)pm[o.pickerName].starts.push(o.startTs);
-      if(o.endTs)pm[o.pickerName].ends.push(o.endTs);
-    }
+      if(o.endTs&&o.startTs)pm[o.pickerName].pickMs+=(o.endTs-o.startTs);
+    });
+    return pm;
+  }
+
+  function calcLph(pickMs,lines,orders){
+    let ms=pickMs;
+    if(ms>3*3600000)ms=Math.max(ms-BREAK_MS,ms*0.7);
+    return(orders>=2||ms>=30*60000)&&lines>0?(lines/(ms/3600000)):null;
+  }
+
+  // ── DATA SETS ────────────────────────────────────────
+  let selOrders=byPeriod(ORDERS,p);
+  if(s!=='all')selOrders=selOrders.filter(o=>o.shift===s);
+  const selDone=selOrders.filter(o=>['closed','backorder_done','partial_located','backorder_redrop','order_canceled','handoff_done','paused'].includes(o.status));
+  const selOpen=selOrders.filter(o=>o.status==='open').length;
+  const selBO=selOrders.filter(o=>o.status==='backorder').length;
+  const selLines=selDone.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+
+  // Always compute today + this-week for the avg strip (ignores shift filter)
+  const todAllO=byPeriod(ORDERS,'today');
+  const wkAllO=byPeriod(ORDERS,'week');
+  const todO=s!=='all'?todAllO.filter(o=>o.shift===s):todAllO;
+  const wkO=s!=='all'?wkAllO.filter(o=>o.shift===s):wkAllO;
+  const pmToday=buildPM(todO);
+  const pmWeek=buildPM(wkO);
+  const pmSel=buildPM(selOrders);
+
+  // ── TOP KPI CARDS ────────────────────────────────────
+  const todLines=Object.values(pmToday).reduce((a,d)=>a+d.lines,0);
+  const wkLines=Object.values(pmWeek).reduce((a,d)=>a+d.lines,0);
+  const wkAvgLines=Math.round(wkLines/workDays);
+  const ordersInSel=new Set(selDone.map(o=>o.id));
+  const selShortages=SHORTAGES.filter(sh=>ordersInSel.has(sh.orderId));
+  const pendingIC=SHORTAGES.filter(sh=>!sh.processed).length;
+  const shortRate=selDone.length>0?((selShortages.length/selDone.length)*100).toFixed(0):0;
+  const totalPickMs=Object.values(pmSel).reduce((a,d)=>a+d.pickMs,0);
+  const teamLph=calcLph(totalPickMs,selLines,selDone.length);
+  // Avg order cycle time (start→end for completed orders)
+  const cycTimes=selDone.filter(o=>o.startTs&&o.endTs).map(o=>o.endTs-o.startTs);
+  const avgCycMin=cycTimes.length?Math.round(cycTimes.reduce((a,v)=>a+v,0)/cycTimes.length/60000):null;
+
+  const trend=wkAvgLines>0?((todLines-wkAvgLines)/wkAvgLines*100):0;
+  const trendPip=trend>5?`<span style="font-size:11px;color:var(--green)">▲${trend.toFixed(0)}%</span>`:
+                 trend<-5?`<span style="font-size:11px;color:var(--red)">▼${Math.abs(trend).toFixed(0)}%</span>`:
+                 `<span style="font-size:11px;color:var(--text3)">→ on pace</span>`;
+
+  document.getElementById('dashStats').innerHTML=`
+    <div class="stat-card c-accent"><div class="stat-label">Completed Orders</div><div class="stat-value">${selDone.length}</div><div class="stat-sub">${selOpen} open · ${selBO} backorder</div></div>
+    <div class="stat-card c-green"><div class="stat-label">Lines Picked</div><div class="stat-value">${selLines}</div><div class="stat-sub">Today <strong>${todLines}</strong> · Wk avg <strong>${wkAvgLines}</strong>/day ${p==='today'?trendPip:''}</div></div>
+    <div class="stat-card c-amber"><div class="stat-label">Team Lines/Hr</div><div class="stat-value">${teamLph?teamLph.toFixed(1):'—'}</div><div class="stat-sub">combined picker rate</div></div>
+    <div class="stat-card c-red"><div class="stat-label">Shortage Rate</div><div class="stat-value">${shortRate}%</div><div class="stat-sub">${selShortages.length} shortages · ${pendingIC} pending IC</div></div>
+    <div class="stat-card" style="border-color:var(--purple)"><div class="stat-label">Avg Cycle Time</div><div class="stat-value">${avgCycMin!=null?avgCycMin+'m':'—'}</div><div class="stat-sub">start → close</div></div>
+    <div class="stat-card c-accent" style="border-color:var(--text3)"><div class="stat-label">Active Pickers</div><div class="stat-value">${Object.keys(pmSel).length}</div><div class="stat-sub">this period</div></div>
+  `;
+
+  // ── DAILY + WEEKLY AVG STRIP (always visible) ────────
+  // All active (non-deactivated) pickers who appear in today OR this week
+  const allActiveNames=new Set([
+    ...PICKERS.filter(p=>!p.archived&&!p.deactivated).map(p=>p.name),
+    ...Object.keys(pmToday),...Object.keys(pmWeek)
+  ].filter(n=>!deactivatedNames.has(n)));
+
+  const avgRows=[];
+  allActiveNames.forEach(name=>{
+    const pk=PICKERS.find(px=>px.name===name);
+    if(!pk)return;
+    const tod=pmToday[name]||{orders:0,lines:0,pickMs:0};
+    const wk=pmWeek[name]||{orders:0,lines:0,pickMs:0};
+    const todLph=calcLph(tod.pickMs,tod.lines,tod.orders);
+    const wkAvgL=Math.round(wk.lines/workDays);
+    const wkAvgPkMs=wk.pickMs/workDays;
+    const wkLph=calcLph(wkAvgPkMs,wkAvgL,wk.orders/workDays);
+    // Trend vs week avg
+    const hasTodData=tod.orders>0;
+    const trend=wkAvgL>0&&tod.lines>0?(tod.lines>wkAvgL*1.07?'up':tod.lines<wkAvgL*0.93?'down':'flat'):'none';
+    avgRows.push({name,shift:pk.shift,todLines:tod.lines,todOrders:tod.orders,todLph,wkAvgL,wkLph,trend,hasTodData});
   });
-  SHORTAGES.forEach(s=>{const o=ORDERS.find(x=>x.id===s.orderId);if(o&&pm[o.pickerName])pm[o.pickerName].shorts+=s.qty;});
-  // Build flat array with computed lph for sorting
-  const BREAK_MS2=50*60*1000;
-  const pickerRows=Object.entries(pm).map(([n,d])=>{
-    const avgL=d.orders>0?(d.lines/d.orders):0;
-    const pairs=Math.min(d.starts.length,d.ends.length);
-    const sS=d.starts.slice().sort((a,b)=>a-b),sE=d.ends.slice().sort((a,b)=>a-b);
-    let pickMs=0;for(let i=0;i<pairs;i++)pickMs+=(sE[i]-sS[i]);
-    if(pickMs>3*3600000)pickMs=Math.max(pickMs-BREAK_MS2,pickMs*0.7);
-    const lphVal=(d.orders>=2||pickMs>=30*60000)&&d.lines>0?(d.lines/(pickMs/3600000)):null;
-    const avgT=d.orders>0&&pickMs>0?fmtDur(pickMs/d.orders):'—';
-    return{name:n,shift:d.shift,orders:d.orders,lines:d.lines,avgL,avgT,lph:lphVal,shorts:d.shorts};
+  avgRows.sort((a,b)=>{if(a.shift!==b.shift)return a.shift==='1st'?-1:1;return a.name.localeCompare(b.name);});
+
+  const avgHead=document.getElementById('dashAvgHead');
+  if(avgHead)avgHead.innerHTML=`<tr>
+    <th>Picker</th><th>Shift</th>
+    <th>Today Orders</th><th>Today Lines</th><th>Today L/Hr</th>
+    <th>Wk Avg Lines/Day</th><th>Wk Avg L/Hr</th><th>Trend</th>
+  </tr>`;
+
+  const trendIcon=(t)=>t==='up'?'<span style="color:var(--green);font-weight:700">▲</span>':t==='down'?'<span style="color:var(--red);font-weight:700">▼</span>':t==='flat'?'<span style="color:var(--text3)">→</span>':'<span style="color:var(--text3)">—</span>';
+  const lphCell=(v)=>`<strong style="color:${v==null?'inherit':v>=20?'var(--green)':v>=12?'var(--amber)':'var(--red)'}">${v!=null?v.toFixed(1):'—'}</strong>`;
+
+  const avgBody=document.getElementById('dashAvgBody');
+  if(avgBody)avgBody.innerHTML=avgRows.map(r=>`<tr style="${!r.hasTodData?'opacity:.6':''}">
+    <td><strong>${r.name}</strong></td>
+    <td>${shiftBadge(r.shift)}</td>
+    <td>${r.todOrders||'—'}</td>
+    <td><strong style="color:var(--accent)">${r.todLines||'—'}</strong></td>
+    <td>${lphCell(r.todLph)}</td>
+    <td>${r.wkAvgL||'—'}</td>
+    <td>${lphCell(r.wkLph)}</td>
+    <td>${trendIcon(r.trend)}</td>
+  </tr>`).join('')||`<tr><td colspan="8" class="text-c text-muted" style="padding:16px">No active pickers</td></tr>`;
+
+  // ── SHIFT COMPARISON ─────────────────────────────────
+  const s1Done=selDone.filter(o=>o.shift==='1st');
+  const s2Done=selDone.filter(o=>o.shift==='2nd');
+  const s1l=s1Done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+  const s2l=s2Done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
+  const s1Pm=buildPM(selOrders.filter(o=>o.shift==='1st'));
+  const s2Pm=buildPM(selOrders.filter(o=>o.shift==='2nd'));
+  const s1Lph=calcLph(Object.values(s1Pm).reduce((a,d)=>a+d.pickMs,0),s1l,s1Done.length);
+  const s2Lph=calcLph(Object.values(s2Pm).reduce((a,d)=>a+d.pickMs,0),s2l,s2Done.length);
+  const mxS=Math.max(s1l,s2l,1);
+  document.getElementById('dashShiftBreak').innerHTML=`
+    <div class="div-bar"><div class="div-bar-head"><div class="div-bar-label">🌅 1st Shift</div><div><strong>${s1l}</strong> lines · ${s1Done.length} orders · ${s1Lph?s1Lph.toFixed(1)+'L/hr':'—'}</div></div><div class="div-bar-track"><div class="div-bar-fill" style="width:${(s1l/mxS)*100}%;background:#1d6ef5"></div></div></div>
+    <div class="div-bar"><div class="div-bar-head"><div class="div-bar-label">🌙 2nd Shift</div><div><strong>${s2l}</strong> lines · ${s2Done.length} orders · ${s2Lph?s2Lph.toFixed(1)+'L/hr':'—'}</div></div><div class="div-bar-track"><div class="div-bar-fill" style="width:${(s2l/mxS)*100}%;background:#7c3aed"></div></div></div>`;
+
+  // ── DIVISION BREAKDOWN ───────────────────────────────
+  const dt={};selDone.forEach(o=>{const k=o.division||'UNK';if(!dt[k])dt[k]={lines:0,orders:0,shorts:0};dt[k].lines+=(o.pickedLines||o.lines||0);dt[k].orders++;});
+  selShortages.forEach(sh=>{const o=selDone.find(x=>x.id===sh.orderId);if(o){const k=o.division||'UNK';if(dt[k])dt[k].shorts++;}});
+  const mxD=Math.max(...Object.values(dt).map(x=>x.lines),1);
+  document.getElementById('dashDivBreak').innerHTML=Object.entries(dt).sort((a,b)=>b[1].lines-a[1].lines)
+    .map(([k,v])=>`<div class="div-bar"><div class="div-bar-head"><div class="div-bar-label">${DIV[k]?.name||k}</div><div>${v.lines} lines · ${v.orders} orders${v.shorts?` · <span style="color:var(--red)">${v.shorts} short</span>`:''}</div></div><div class="div-bar-track"><div class="div-bar-fill" style="width:${(v.lines/mxD)*100}%;background:${DIV[k]?.color||'#8b93a7'}"></div></div></div>`)
+    .join('')||'<div class="text-muted text-xs">No data</div>';
+
+  // ── EFFICIENCY FLAGS ─────────────────────────────────
+  const LPH_WARN=12; const SHORT_RATE_WARN=0.3;
+  const flags=[];
+  // Pickers with today lph below threshold
+  avgRows.filter(r=>r.hasTodData&&r.todLph!=null&&r.todLph<LPH_WARN).forEach(r=>{
+    flags.push({type:'slow',msg:`<strong>${r.name}</strong> (${r.shift}) — today's pace <span style="color:var(--red)">${r.todLph.toFixed(1)} L/hr</span> (threshold ${LPH_WARN})`});
   });
+  // Pickers with high shortage rate this period
+  const pickerShortMap={};
+  selShortages.forEach(sh=>{const o=selDone.find(x=>x.id===sh.orderId);if(o){pickerShortMap[o.pickerName]=(pickerShortMap[o.pickerName]||0)+1;}});
+  Object.entries(pickerShortMap).forEach(([name,cnt])=>{
+    const orders=pmSel[name]?.orders||1;
+    const rate=cnt/orders;
+    if(rate>=SHORT_RATE_WARN)flags.push({type:'shorts',msg:`<strong>${name}</strong> — shortage rate <span style="color:var(--amber)">${(rate*100).toFixed(0)}%</span> (${cnt} in ${orders} orders)`});
+  });
+  // Orders open more than 4 hrs
+  const staleOpenCutoff=Date.now()-4*3600000;
+  ORDERS.filter(o=>o.status==='open'&&o.startTs&&o.startTs<staleOpenCutoff).forEach(o=>{
+    const hrs=((Date.now()-o.startTs)/3600000).toFixed(1);
+    flags.push({type:'stale',msg:`Order <strong>${o.orderNum}</strong> (${o.pickerName}) — open <span style="color:var(--red)">${hrs} hrs</span>`});
+  });
+  const flagEl=document.getElementById('dashFlags');
+  if(flagEl)flagEl.innerHTML=flags.length
+    ?flags.map(f=>`<div style="padding:8px 10px;border-radius:6px;background:var(--surface2);margin-bottom:6px;font-size:12px;border-left:3px solid ${f.type==='slow'?'var(--red)':f.type==='shorts'?'var(--amber)':'var(--purple)'}">${f.msg}</div>`).join('')
+    :'<div class="text-xs text-muted" style="padding:10px">✅ No efficiency flags — team is on pace</div>';
+
+  // ── ORDER VELOCITY ───────────────────────────────────
+  // Orders/hr broken out by shift for the selected period
+  const velEl=document.getElementById('dashVelocity');
+  if(velEl){
+    const velBands=(ordArr,label,color)=>{
+      if(!ordArr.length)return'';
+      // Group by hour-of-day bucket
+      const hrs={};
+      ordArr.filter(o=>o.endTs).forEach(o=>{
+        const h=new Date(o.endTs).getHours();
+        hrs[h]=(hrs[h]||0)+1;
+      });
+      // Also compute order per effective hour (end span / orders)
+      const ends=ordArr.filter(o=>o.endTs).map(o=>o.endTs);
+      const starts=ordArr.filter(o=>o.startTs).map(o=>o.startTs);
+      const spanMs=ends.length&&starts.length?Math.max(...ends)-Math.min(...starts):0;
+      const oph=spanMs>0?(ordArr.length/(spanMs/3600000)).toFixed(1):'—';
+      const peakHr=Object.entries(hrs).sort((a,b)=>b[1]-a[1])[0];
+      const peakLabel=peakHr?`${peakHr[1]} orders at ${peakHr[0]}:00`:'—';
+      return`<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div class="flex-c j-between"><span style="font-size:13px;font-weight:600;color:${color}">${label}</span><span style="font-size:12px;color:var(--text3)">${ordArr.length} orders</span></div>
+        <div style="font-size:12px;margin-top:4px"><span style="color:var(--text2)">Rate:</span> <strong>${oph}</strong> orders/hr &nbsp;·&nbsp; <span style="color:var(--text2)">Peak hour:</span> ${peakLabel}</div>
+      </div>`;
+    };
+    velEl.innerHTML=
+      velBands(selDone.filter(o=>o.shift==='1st'),'🌅 1st Shift','#1d6ef5')+
+      velBands(selDone.filter(o=>o.shift==='2nd'),'🌙 2nd Shift','#7c3aed')||
+      '<div class="text-xs text-muted" style="padding:10px">No completed orders this period</div>';
+  }
+
+  // ── PICKER DETAIL TABLE ──────────────────────────────
   const {col:dc,dir:dd}=SORT.dashboard;
-  const colMapD={name:'name',shift:'shift',orders:'orders',lines:'lines',avgL:'avgL',lph:'lph',shorts:'shorts'};
-  const sorted=sortData(pickerRows,colMapD[dc]||'lines',dd);
+  const allNames=new Set([...Object.keys(pmSel),...Object.keys(pmToday),...Object.keys(pmWeek)]);
+  const rows=[];
+  allNames.forEach(name=>{
+    if(deactivatedNames.has(name))return;
+    const pk=PICKERS.find(px=>px.name===name);
+    const d=pmSel[name]||{shift:pk?.shift||'1st',orders:0,lines:0,pickMs:0};
+    const tod=pmToday[name]||{orders:0,lines:0,pickMs:0};
+    const wk=pmWeek[name]||{orders:0,lines:0,pickMs:0};
+    const selLph=calcLph(d.pickMs,d.lines,d.orders);
+    const wkAvgL=Math.round(wk.lines/workDays);
+    const wkAvgPkMs=wk.pickMs/workDays;
+    const wkLph=calcLph(wkAvgPkMs,wkAvgL,wk.orders/workDays);
+    const pShorts=SHORTAGES.filter(sh=>selDone.find(x=>x.pickerName===name&&x.id===sh.orderId)).length;
+    const shortPct=d.orders>0?((pShorts/d.orders)*100).toFixed(0):0;
+    rows.push({name,shift:d.shift||pk?.shift||'1st',orders:d.orders,lines:d.lines,lph:selLph,shorts:pShorts,shortPct,todLines:tod.lines,wkAvgL,wkLph});
+  });
+
+  const cMap={name:'name',shift:'shift',orders:'orders',lines:'lines',lph:'lph',shorts:'shorts',todLines:'todLines',wkAvgL:'wkAvgL'};
+  const sorted=sortData(rows,cMap[dc]||'lines',dd);
   const th2=(c,l)=>thSort('dashboard',c,l,dc,dd);
+  const isToday=p==='today';
   const dhead=document.getElementById('dashPickerHead');
-  if(dhead)dhead.innerHTML=`<tr>${th2('name','Picker')}${th2('shift','Shift')}${th2('orders','Orders')}${th2('lines','Total Lines')}${th2('avgL','Avg Lines/Order')}<th>Avg Time/Order</th>${th2('lph','Lines/Hr')}${th2('shorts','Shortages')}</tr>`;
+  if(dhead)dhead.innerHTML=`<tr>
+    ${th2('name','Picker')}${th2('shift','Shift')}${th2('orders','Orders')}
+    ${th2('lines',isToday?'Lines Today':'Period Lines')}
+    ${th2('lph','L/Hr')}${th2('shorts','Shorts')}
+    ${!isToday?th2('todLines','Today Lines'):''}
+    ${th2('wkAvgL','Wk Avg/Day')}<th>Wk L/Hr</th>
+  </tr>`;
+  const pLbl=document.getElementById('dashPickerCompareLabel');
+  if(pLbl)pLbl.textContent=isToday?'Today vs this-week daily avg':`${pLabels[p]||p} · with today & weekly avg`;
+
   document.getElementById('dashPickerBody').innerHTML=sorted.map(d=>{
-    const lphStr=d.lph?d.lph.toFixed(1):'—';
-    return`<tr><td><strong>${d.name}</strong></td><td>${shiftBadge(d.shift)}</td><td>${d.orders}</td><td><strong>${d.lines}</strong></td><td>${d.avgL.toFixed(1)}</td><td>${d.avgT}</td><td><strong>${lphStr}</strong></td><td>${d.shorts>0?`<span class="badge bg-amber">${d.shorts}</span>`:'—'}</td></tr>`;
-  }).join('')||'<tr><td colspan="8" class="text-c text-muted" style="padding:22px">No data</td></tr>';
+    const lc=(v)=>v==null?'inherit':v>=20?'var(--green)':v>=12?'var(--amber)':'var(--red)';
+    const tdTrend=d.wkAvgL>0&&d.todLines>0?(d.todLines>d.wkAvgL*1.07?'<span style="color:var(--green)">▲</span>':d.todLines<d.wkAvgL*0.93?'<span style="color:var(--red)">▼</span>':''):'' ;
+    return`<tr>
+      <td><strong>${d.name}</strong></td><td>${shiftBadge(d.shift)}</td><td>${d.orders}</td>
+      <td><strong style="color:var(--accent)">${d.lines||'—'}</strong></td>
+      <td><strong style="color:${lc(d.lph)}">${d.lph?d.lph.toFixed(1):'—'}</strong></td>
+      <td>${d.shorts>0?`<span class="badge bg-amber">${d.shorts} (${d.shortPct}%)</span>`:'—'}</td>
+      ${!isToday?`<td>${d.todLines||'—'} ${tdTrend}</td>`:''}
+      <td>${d.wkAvgL||'—'}</td>
+      <td style="color:${lc(d.wkLph)}">${d.wkLph?d.wkLph.toFixed(1):'—'}</td>
+    </tr>`;
+  }).join('')||`<tr><td colspan="9" class="text-c text-muted" style="padding:22px">No data for this period</td></tr>`;
 };
 
 // ── PICKERS ──────────────────────────────────────────
@@ -1815,6 +2079,63 @@ function pickerCardHTML(p,now,isDeactivated){
     </div>
   </div>`;
 }
+
+// ── MERGE PICKER PROFILES ────────────────────────────
+function populateMergeDropdowns(){
+  const all=PICKERS.filter(p=>!p.archived).sort((a,b)=>a.name.localeCompare(b.name));
+  const opts=all.map(p=>`<option value="${p.id}">${p.name} (${p.shift} shift)\</option>`).join("");
+  document.getElementById('mergeKeep').innerHTML='<option value="">— Select picker to KEEP —</option>'+opts;
+  document.getElementById('mergeDrop').innerHTML='<option value="">— Select DUPLICATE to delete —</option>'+opts;
+}
+
+window.openMergeModal=function(){
+  populateMergeDropdowns();
+  document.getElementById("mergePreview").textContent="";
+  openModal("mergePickerModal");
+};
+
+["mergeKeep","mergeDrop"].forEach(id=>{
+  document.addEventListener("change",e=>{
+    if(e.target.id!==id)return;
+    const keepId=document.getElementById("mergeKeep").value;
+    const dropId=document.getElementById("mergeDrop").value;
+    if(keepId&&dropId){
+      if(keepId===dropId){document.getElementById("mergePreview").textContent="⚠️ Cannot merge a picker with themselves.";return;}
+      const keepP=PICKERS.find(p=>p.id===keepId);
+      const dropP=PICKERS.find(p=>p.id===dropId);
+      const dropOrders=ORDERS.filter(o=>o.pickerName===dropP?.name).length;
+      document.getElementById("mergePreview").textContent=
+        `${dropP?.name} has ${dropOrders} order(s). All will move to ${keepP?.name}, then ${dropP?.name} will be deleted.`;
+    }
+  });
+});
+
+window.submitMergePickers=async function(){
+  const keepId=document.getElementById("mergeKeep").value;
+  const dropId=document.getElementById("mergeDrop").value;
+  if(!keepId||!dropId){alert("Select both profiles.");return;}
+  if(keepId===dropId){alert("Cannot merge a picker with themselves.");return;}
+  const keepP=PICKERS.find(p=>p.id===keepId);
+  const dropP=PICKERS.find(p=>p.id===dropId);
+  if(!keepP||!dropP)return;
+  if(!confirm(`Merge ${dropP.name} → ${keepP.name}?
+
+All orders and shortages under "${dropP.name}" will be reassigned to "${keepP.name}" and the duplicate profile deleted.
+
+This cannot be undone.`))return;
+  try{
+    // Reassign all orders
+    for(const o of ORDERS.filter(o=>o.pickerName===dropP.name))
+      await updateDoc(doc(db,"orders",o.id),{pickerName:keepP.name,shift:keepP.shift});
+    // Reassign all shortages
+    for(const s of SHORTAGES.filter(s=>s.pickerName===dropP.name))
+      await updateDoc(doc(db,"shortages",s.id),{pickerName:keepP.name});
+    // Delete duplicate picker
+    await deleteDoc(doc(db,"pickers",dropP.id));
+    closeModal("mergePickerModal");
+    alert(`Done. All ${dropP.name} records merged into ${keepP.name}.`);
+  }catch(e){alert("Error: "+e.message);}
+};
 
 window.savePicker=async function(){
   const name=document.getElementById('newPickerName').value.trim();
@@ -2042,32 +2363,52 @@ function refreshDatalist(){
 }
 
 window.refreshPickerDropdown=function(){
-  renderPickerDropdownOptions(document.getElementById('scanShift')?.value||'',document.getElementById('scanPicker')?.value||'');
-};
-window.showPickerDropdown=function(){
-  renderPickerDropdownOptions(document.getElementById('scanShift')?.value||'',document.getElementById('scanPicker')?.value||'');
-  document.getElementById('pickerDropdown').style.display='block';
-};
-window.filterPickerDropdown=function(){
-  renderPickerDropdownOptions(document.getElementById('scanShift')?.value||'',document.getElementById('scanPicker')?.value||'');
-  document.getElementById('pickerDropdown').style.display='block';
+  renderPickerDropdownOptions(document.getElementById('scanShift')?.value||'','');
 };
 window.hidePickerDropdownDelayed=function(){setTimeout(()=>{const dd=document.getElementById('pickerDropdown');if(dd)dd.style.display='none';},200);};
 
-function renderPickerDropdownOptions(shift,query){
+function renderPickerDropdownOptions(shift, query){
   const dd=document.getElementById('pickerDropdown');if(!dd)return;
-  const q=query.toLowerCase().trim();
-  const pickers=PICKERS.filter(p=>!p.archived&&!p.deactivated);
-  const match=pickers.filter(p=>p.shift===shift);
-  const other=pickers.filter(p=>p.shift!==shift);
-  const fn=p=>!q||p.name.toLowerCase().includes(q);
-  const sm=match.filter(fn),om=other.filter(fn);
-  if(!sm.length&&!om.length){dd.innerHTML='<div style="padding:10px 14px;font-size:12px;color:var(--text3)">No matching pickers — type to create new</div>';return;}
-  let html='';
-  if(sm.length){html+=`<div style="padding:5px 12px 3px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3)">${shift} Shift</div>`;html+=sm.map(p=>`<div class="picker-dd-item" style="padding:9px 14px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px" onmousedown="selectPickerFromDropdown('${p.name.replace(/'/g,"\\'")}','${p.shift}')">${p.shift==='1st'?'🌅':'🌙'} ${p.name}</div>`).join('');}
-  if(om.length){html+=`<div style="padding:5px 12px 3px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text3);border-top:1px solid var(--border);margin-top:4px">${shift==='1st'?'2nd':'1st'} Shift</div>`;html+=om.map(p=>`<div class="picker-dd-item" style="padding:9px 14px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;opacity:.7" onmousedown="selectPickerFromDropdown('${p.name.replace(/'/g,"\\'")}','${p.shift}')">${p.shift==='1st'?'🌅':'🌙'} ${p.name}</div>`).join('');}
+  const q=(query||'').toLowerCase().trim();
+  const pickers=PICKERS.filter(p=>!p.archived&&!p.deactivated).sort((a,b)=>a.name.localeCompare(b.name));
+  const s1=pickers.filter(p=>p.shift==='1st'&&(!q||p.name.toLowerCase().includes(q)));
+  const s2=pickers.filter(p=>p.shift==='2nd'&&(!q||p.name.toLowerCase().includes(q)));
+  // Put current shift group first
+  const [topGroup,topLabel,botGroup,botLabel]=shift==='2nd'
+    ?[s2,'🌙 2nd Shift',s1,'🌅 1st Shift']
+    :[s1,'🌅 1st Shift',s2,'🌙 2nd Shift'];
+
+  const mkItem=(p)=>`<div class="picker-dd-item" style="padding:9px 14px;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px" onmousedown="selectPickerFromDropdown('${p.name.replace(/'/g,"\\'")}','${p.shift}')">${p.shift==='1st'?'🌅':'🌙'} ${p.name}</div>`;
+
+  let html=`<div style="padding:6px 10px;border-bottom:1px solid var(--border)"><input type="text" id="pickerDropdownSearch" placeholder="🔍 Search pickers…" style="width:100%;border:none;background:transparent;font-size:12px;outline:none;color:var(--text)" oninput="onPickerDropdownSearch(this.value)" onclick="event.stopPropagation()"></div>`;
+  if(topGroup.length){
+    html+=`<div style="padding:5px 12px 2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);background:var(--surface2)">${topLabel}</div>`;
+    html+=topGroup.map(mkItem).join('');
+  }
+  if(botGroup.length){
+    html+=`<div style="padding:5px 12px 2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);background:var(--surface2);border-top:1px solid var(--border);margin-top:2px">${botLabel}</div>`;
+    html+=botGroup.map(p=>`<div class="picker-dd-item" style="padding:9px 14px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;opacity:.75" onmousedown="selectPickerFromDropdown('${p.name.replace(/'/g,"\\'")}','${p.shift}')">${p.shift==='1st'?'🌅':'🌙'} ${p.name}</div>`).join('');
+  }
+  if(!topGroup.length&&!botGroup.length){
+    html+='<div style="padding:12px 14px;font-size:12px;color:var(--text3)">No pickers match — add in the 👷 Pickers screen</div>';
+  }
   dd.innerHTML=html;
 }
+
+window.onPickerDropdownSearch=function(q){
+  const shift=document.getElementById('scanShift')?.value||'1st';
+  renderPickerDropdownOptions(shift,q);
+  // Re-focus the search input after re-render
+  setTimeout(()=>document.getElementById('pickerDropdownSearch')?.focus(),0);
+};
+
+window.filterPickerDropdown=function(){/* no-op — dropdown is search-inside now */};
+window.showPickerDropdown=function(){
+  const shift=document.getElementById('scanShift')?.value||'1st';
+  renderPickerDropdownOptions(shift,'');
+  const dd=document.getElementById('pickerDropdown');if(dd)dd.style.display='block';
+  setTimeout(()=>document.getElementById('pickerDropdownSearch')?.focus(),50);
+};
 window.selectPickerFromDropdown=function(name,shift){
   document.getElementById('scanPicker').value=name;
   document.getElementById('scanShift').value=shift;
@@ -2720,12 +3061,6 @@ window.renderArchive=function(){
 window.archGo=p=>{archPage=p;renderArchive();};
 window.clearArchFilters=()=>{['archSearch','archFrom','archTo'].forEach(id=>document.getElementById(id).value='');['archPicker','archDiv','archStatus'].forEach(id=>document.getElementById(id).value='');renderArchive();};
 
-// ── LOGIN LOG ────────────────────────────────────────
-function renderLoginLog(){
-  const body=document.getElementById('loginLogBody');
-  if(!LOGIN_LOG.length){body.innerHTML='<tr><td colspan="5" class="text-c text-muted" style="padding:24px">No login records yet</td></tr>';return;}
-  body.innerHTML=LOGIN_LOG.slice(0,200).map(l=>`<tr><td><strong>${l.name}</strong></td><td><span class="badge ${l.role==='manager'?'bg-blue':'bg-gray'}">${l.role}</span></td><td>${l.date}</td><td>${fmtTime(l.ts)}</td><td class="text-xs text-muted">${(l.ua||'').slice(0,60)}</td></tr>`).join('');
-}
 
 // ── ALERTS ───────────────────────────────────────────
 let alertPickerId=null;
@@ -2839,12 +3174,29 @@ window.showPrintPage=function(){
   });
   SHORTAGES.forEach(s=>{const o=ORDERS.find(x=>x.id===s.orderId);if(o&&pm[o.pickerName])pm[o.pickerName].shorts+=s.qty;});
 
+  // Week data for avg comparison column
+  const dow2=new Date().getDay();
+  const workDaysPrint=Math.max(1,dow2===0?5:dow2===6?5:dow2);
+  const pmWeekPrint={};
+  byPeriod(ORDERS,'week').forEach(o=>{
+    if(deactivatedNames.has(o.pickerName)||o.status==='open')return;
+    if(!pmWeekPrint[o.pickerName])pmWeekPrint[o.pickerName]={lines:0,orders:0,pickMs:0};
+    pmWeekPrint[o.pickerName].lines+=(o.pickedLines||o.lines||0);
+    pmWeekPrint[o.pickerName].orders++;
+    if(o.endTs&&o.startTs)pmWeekPrint[o.pickerName].pickMs+=(o.endTs-o.startTs);
+  });
+
   const pickerData=Object.entries(pm).map(([name,d])=>{
     let pickMs=d.pickMs;
     if(pickMs>3*3600000)pickMs=Math.max(pickMs-BREAK_MS,pickMs*0.7);
     const lph=(d.orders>=2||pickMs>=30*60000)&&d.lines>0?(d.lines/(pickMs/3600000)):null;
     const avgL=d.orders>0?(d.lines/d.orders):0;
-    return{name,shift:d.shift,orders:d.orders,lines:d.lines,lph,avgL,shorts:d.shorts,pickMs};
+    const wkD=pmWeekPrint[name]||{lines:0,orders:0,pickMs:0};
+    const wkAvgL=Math.round(wkD.lines/workDaysPrint);
+    let wkMs=wkD.pickMs/workDaysPrint;
+    if(wkMs>3*3600000)wkMs=Math.max(wkMs-BREAK_MS,wkMs*0.7);
+    const wkAvgLph=wkD.orders>=2&&wkAvgL>0?(wkAvgL/(wkMs/3600000)):null;
+    return{name,shift:d.shift,orders:d.orders,lines:d.lines,lph,avgL,shorts:d.shorts,pickMs,wkAvgL,wkAvgLph};
   }).sort((a,b)=>b.lines-a.lines);
 
   const totalLines=done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
@@ -2931,6 +3283,53 @@ window.showPrintPage=function(){
       </div>
     </div>`:''}
 
+    <!-- Daily vs Weekly Avg table (always visible strip equivalent) -->
+    <div style="border:1px solid #e2e5eb;border-radius:8px;overflow:hidden;margin-bottom:20px">
+      <div style="background:#f0f4ff;padding:10px 14px;font-weight:700;font-size:12px;border-bottom:1px solid #e2e5eb;display:flex;justify-content:space-between;align-items:center">
+        <span style="text-transform:uppercase;letter-spacing:.4px;color:#1d6ef5">📊 Daily &amp; Weekly Averages — All Active Pickers</span>
+        <span style="font-size:10px;color:#8b93a7;font-weight:400">Today vs this-week daily avg</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="background:#f7f8fa;border-bottom:2px solid #e2e5eb">
+            ${['Picker','Shift','Today Orders','Today Lines','Today L/Hr','Wk Avg Lines/Day','Wk Avg L/Hr','Trend'].map(h=>`<th style="padding:8px 12px;text-align:${h==='Picker'||h==='Shift'?'left':'right'};font-size:10px;font-weight:700;text-transform:uppercase;color:#8b93a7">${h}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${(()=>{
+            const dow3=new Date().getDay();const wd=Math.max(1,dow3===0?5:dow3===6?5:dow3);
+            const BREAK_MS=50*60*1000;
+            const todPM={};byPeriod(ORDERS,'today').forEach(o=>{if(deactivatedNames.has(o.pickerName))return;if(!todPM[o.pickerName])todPM[o.pickerName]={orders:0,lines:0,pickMs:0,shift:o.shift};const c=['closed','backorder_done','partial_located','backorder_redrop','order_canceled','handoff_done','paused'];if(!c.includes(o.status))return;todPM[o.pickerName].orders++;todPM[o.pickerName].lines+=(o.pickedLines||o.lines||0);if(o.endTs&&o.startTs)todPM[o.pickerName].pickMs+=(o.endTs-o.startTs);});
+            const wkPM={};byPeriod(ORDERS,'week').forEach(o=>{if(deactivatedNames.has(o.pickerName))return;if(!wkPM[o.pickerName])wkPM[o.pickerName]={orders:0,lines:0,pickMs:0};const c=['closed','backorder_done','partial_located','backorder_redrop','order_canceled','handoff_done','paused'];if(!c.includes(o.status))return;wkPM[o.pickerName].lines+=(o.pickedLines||o.lines||0);wkPM[o.pickerName].orders++;if(o.endTs&&o.startTs)wkPM[o.pickerName].pickMs+=(o.endTs-o.startTs);});
+            const allPkrs=PICKERS.filter(px=>!px.archived&&!px.deactivated).sort((a,b)=>{if(a.shift!==b.shift)return a.shift==='1st'?-1:1;return a.name.localeCompare(b.name);});
+            return allPkrs.map((pk,i)=>{
+              const tod=todPM[pk.name]||{orders:0,lines:0,pickMs:0};
+              const wk=wkPM[pk.name]||{orders:0,lines:0,pickMs:0};
+              let tMs=tod.pickMs;if(tMs>3*3600000)tMs=Math.max(tMs-BREAK_MS,tMs*.7);
+              const todLph=(tod.orders>=2||tMs>=30*60000)&&tod.lines>0?(tod.lines/(tMs/3600000)):null;
+              const wkAvgL=Math.round(wk.lines/wd);
+              let wMs=wk.pickMs/wd;if(wMs>3*3600000)wMs=Math.max(wMs-BREAK_MS,wMs*.7);
+              const wkLph=wk.orders>=2&&wkAvgL>0?(wkAvgL/(wMs/3600000)):null;
+              const lc=(v)=>v==null?'#8b93a7':v>=20?'#16a34a':v>=12?'#d97706':'#dc2626';
+              const trend=wkAvgL>0&&tod.lines>0?(tod.lines>wkAvgL*1.07?'▲':tod.lines<wkAvgL*0.93?'▼':'→'):'—';
+              const tcolor=trend==='▲'?'#16a34a':trend==='▼'?'#dc2626':'#8b93a7';
+              const sc=pk.shift==='1st'?'#1d6ef5':'#7c3aed';
+              return`<tr style="border-top:1px solid #e2e5eb;background:${i%2===0?'#fff':'#fafafa'}${tod.orders===0?';opacity:.6':''}">
+                <td style="padding:8px 12px;font-weight:700">${pk.name}</td>
+                <td style="padding:8px 12px"><span style="background:${sc}20;color:${sc};padding:2px 6px;border-radius:10px;font-size:10px;font-weight:700">${pk.shift}</span></td>
+                <td style="padding:8px 12px;text-align:right">${tod.orders||'—'}</td>
+                <td style="padding:8px 12px;text-align:right;font-weight:800;color:#1d6ef5">${tod.lines||'—'}</td>
+                <td style="padding:8px 12px;text-align:right;font-weight:700;color:${lc(todLph)}">${todLph?todLph.toFixed(1):'—'}</td>
+                <td style="padding:8px 12px;text-align:right">${wkAvgL||'—'}</td>
+                <td style="padding:8px 12px;text-align:right;color:${lc(wkLph)}">${wkLph?wkLph.toFixed(1):'—'}</td>
+                <td style="padding:8px 12px;text-align:right;font-weight:700;color:${tcolor}">${trend}</td>
+              </tr>`;
+            }).join('');
+          })()}
+        </tbody>
+      </table>
+    </div>
+
     <!-- Picker performance table -->
     <div style="border:1px solid #e2e5eb;border-radius:8px;overflow:hidden;margin-bottom:20px">
       <div style="background:#f7f8fa;padding:10px 14px;font-weight:700;font-size:12px;border-bottom:1px solid #e2e5eb;text-transform:uppercase;letter-spacing:.4px;color:#5a6072">Picker Performance Detail</div>
@@ -2944,6 +3343,8 @@ window.showPrintPage=function(){
             <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b93a7">Lines</th>
             <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b93a7">Avg Lines/Order</th>
             <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b93a7">Lines/Hr</th>
+            <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b93a7">Wk Avg/Day</th>
+            <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b93a7">Wk L/Hr</th>
             <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:#8b93a7">Shortages</th>
           </tr>
         </thead>
@@ -2960,6 +3361,8 @@ window.showPrintPage=function(){
               <td style="padding:9px 12px;text-align:right;font-weight:800;font-size:14px">${d.lines}</td>
               <td style="padding:9px 12px;text-align:right">${d.avgL.toFixed(1)}</td>
               <td style="padding:9px 12px;text-align:right;font-weight:700;color:${lphColor}">${lphStr}</td>
+              <td style="padding:9px 12px;text-align:right;font-weight:700">${d.wkAvgL||'—'}</td>
+              <td style="padding:9px 12px;text-align:right;color:${d.wkAvgLph?(d.wkAvgLph>=20?'#16a34a':d.wkAvgLph>=12?'#d97706':'#dc2626'):'#8b93a7'}">${d.wkAvgLph?d.wkAvgLph.toFixed(1):'—'}</td>
               <td style="padding:9px 12px;text-align:right;color:${d.shorts>0?'#dc2626':'#8b93a7'}">${d.shorts||'—'}</td>
             </tr>`;
           }).join('')}
@@ -3013,7 +3416,7 @@ window.showPage=function(id,tab){
   if(id==='pickers')renderPickers();if(id==='divisions')renderDivisions();
   if(id==='backorder')renderBackorder();if(id==='shortages'){populateShortDivFilter();renderShortages();}
   if(id==='open24')renderOpen24();if(id==='archive')renderArchive();
-  if(id==='alerts')renderAlerts();if(id==='logins')renderLoginLog();
+  if(id==='alerts')renderAlerts();
   if(id==='print')showPrintPage();if(id==='settings')renderSettingsUsers();
 };
 
