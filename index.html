@@ -210,8 +210,8 @@ tbody td{padding:8px 11px;font-size:12px}
         <div class="form-group"><label>Shift</label><select id="scanShift" onchange="refreshPickerDropdown()"><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select></div>
         <div class="form-group">
           <label>Picker Name</label>
-          <div style="position:relative">
-            <input type="text" id="scanPicker" placeholder="Select from roster below…" autocomplete="off" readonly onfocus="showPickerDropdown()" onblur="hidePickerDropdownDelayed()" style="cursor:pointer;background:var(--surface2)">
+          <div style="position:relative" id="pickerDropdownWrap">
+            <input type="text" id="scanPicker" placeholder="Select from roster below…" autocomplete="off" readonly onfocus="showPickerDropdown()" style="cursor:pointer;background:var(--surface2)">
             <div id="pickerDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:var(--shadow-lg);z-index:200;max-height:240px;overflow-y:auto;margin-top:2px"></div>
           </div>
           <div class="text-xs text-muted" style="margin-top:3px">Must be on roster. Add new pickers in the 👷 Pickers screen.</div>
@@ -723,11 +723,11 @@ tbody td{padding:8px 11px;font-size:12px}
       <div class="alert alert-amber mb-12" style="font-size:12px">All orders and shortages from the <strong>duplicate</strong> profile will be moved to the <strong>keep</strong> profile, then the duplicate will be deleted.</div>
       <div class="form-group">
         <label>Profile to KEEP <span class="text-xs text-muted">(this name survives)</span></label>
-        <select id="mergeKeep" style="font-size:13px"><option value="">— Select picker —</option></select>
+        <select id="mergeKeep" style="font-size:13px" onchange="onMergeChange()"><option value="">— Select picker to KEEP —</option></select>
       </div>
       <div class="form-group">
         <label>Profile to REMOVE <span class="text-xs text-muted">(duplicate — will be deleted)</span></label>
-        <select id="mergeDrop" style="font-size:13px"><option value="">— Select picker —</option></select>
+        <select id="mergeDrop" style="font-size:13px" onchange="onMergeChange()"><option value="">— Select DUPLICATE to delete —</option></select>
       </div>
       <div id="mergePreview" class="text-xs text-muted" style="margin-top:4px"></div>
     </div>
@@ -2090,25 +2090,21 @@ function populateMergeDropdowns(){
 
 window.openMergeModal=function(){
   populateMergeDropdowns();
-  document.getElementById("mergePreview").textContent="";
-  openModal("mergePickerModal");
+  openModal('mergePickerModal');
 };
 
-["mergeKeep","mergeDrop"].forEach(id=>{
-  document.addEventListener("change",e=>{
-    if(e.target.id!==id)return;
-    const keepId=document.getElementById("mergeKeep").value;
-    const dropId=document.getElementById("mergeDrop").value;
-    if(keepId&&dropId){
-      if(keepId===dropId){document.getElementById("mergePreview").textContent="⚠️ Cannot merge a picker with themselves.";return;}
-      const keepP=PICKERS.find(p=>p.id===keepId);
-      const dropP=PICKERS.find(p=>p.id===dropId);
-      const dropOrders=ORDERS.filter(o=>o.pickerName===dropP?.name).length;
-      document.getElementById("mergePreview").textContent=
-        `${dropP?.name} has ${dropOrders} order(s). All will move to ${keepP?.name}, then ${dropP?.name} will be deleted.`;
-    }
-  });
-});
+window.onMergeChange=function(){
+  const keepId=document.getElementById('mergeKeep').value;
+  const dropId=document.getElementById('mergeDrop').value;
+  const preview=document.getElementById('mergePreview');
+  if(!keepId||!dropId){preview.textContent='';return;}
+  if(keepId===dropId){preview.textContent='⚠️ Cannot merge a picker with themselves.';return;}
+  const keepP=PICKERS.find(p=>p.id===keepId);
+  const dropP=PICKERS.find(p=>p.id===dropId);
+  const dropOrders=ORDERS.filter(o=>o.pickerName===dropP?.name).length;
+  const dropShorts=SHORTAGES.filter(s=>s.pickerName===dropP?.name).length;
+  preview.textContent=`"${dropP?.name}" has ${dropOrders} order(s) and ${dropShorts} shortage(s). All will be moved to "${keepP?.name}", then the duplicate will be deleted.`;
+};
 
 window.submitMergePickers=async function(){
   const keepId=document.getElementById("mergeKeep").value;
@@ -2365,7 +2361,13 @@ function refreshDatalist(){
 window.refreshPickerDropdown=function(){
   renderPickerDropdownOptions(document.getElementById('scanShift')?.value||'','');
 };
-window.hidePickerDropdownDelayed=function(){setTimeout(()=>{const dd=document.getElementById('pickerDropdown');if(dd)dd.style.display='none';},200);};
+// Close picker dropdown when clicking anywhere outside the picker field + dropdown
+document.addEventListener('click',function(e){
+  const wrap=document.getElementById('pickerDropdownWrap');
+  const dd=document.getElementById('pickerDropdown');
+  if(dd&&wrap&&!wrap.contains(e.target))dd.style.display='none';
+});
+window.hidePickerDropdownDelayed=function(){/* kept for any legacy calls — no-op now */};
 
 function renderPickerDropdownOptions(shift, query){
   const dd=document.getElementById('pickerDropdown');if(!dd)return;
@@ -2412,7 +2414,7 @@ window.showPickerDropdown=function(){
 window.selectPickerFromDropdown=function(name,shift){
   document.getElementById('scanPicker').value=name;
   document.getElementById('scanShift').value=shift;
-  const dd=document.getElementById('pickerDropdown');if(dd)dd.style.display='none';
+  document.getElementById('pickerDropdown').style.display='none';
   const lines=document.getElementById('scanLines').value;
   if(!lines)document.getElementById('scanLines').focus();
   else document.getElementById('submitBtn').focus();
