@@ -848,7 +848,7 @@ tbody td{padding:8px 11px;font-size:12px}
 <script type="module">
 import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, doc, addDoc, updateDoc,
-         getDocs, onSnapshot, writeBatch, deleteDoc }
+         getDocs, onSnapshot, writeBatch, deleteDoc, query, where }
                                from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ── CONFIG ───────────────────────────────────────────
@@ -1110,7 +1110,11 @@ function buildNumpad(containerId, handler){
 
 // ── FIREBASE LISTENERS ────────────────────────────────
 function startListeners(){
-  onSnapshot(collection(db,'orders'),snap=>{
+  // Scope listeners to last 90 days — massively reduces reads per snapshot event.
+  // Archive queries beyond 90 days will still work via the unscoped getDocs fallback in renderArchive.
+  const ninetyDaysAgo=Date.now()-(90*24*60*60*1000);
+
+  onSnapshot(query(collection(db,'orders'),where('startTs','>',ninetyDaysAgo)),snap=>{
     ORDERS=snap.docs.map(d=>{const x=d.data();return{id:d.id,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,shift:x.shift,date:x.date,startTs:tsMs(x.startTs),endTs:tsMs(x.endTs),status:x.status,lines:x.lines||0,pickedLines:x.pickedLines!==undefined?x.pickedLines:x.lines||0,hasShortage:x.hasShortage||false,backorderDone:x.backorderDone||false,pausedBy:x.pausedBy||null,pausedAt:tsMs(x.pausedAt)||null,pausedNote:x.pausedNote||null,pausedLinesRemaining:x.pausedLinesRemaining??null,handoffTo:x.handoffTo||null,resumedFromPause:x.resumedFromPause||false,canceledBy:x.canceledBy||null}});
     renderTodayFeed();updateBadges();
     const pg=activePage();
@@ -1122,7 +1126,7 @@ function startListeners(){
     refreshDatalist();populateArchPickers();updateBadges();
     const pg=activePage();if(pg==='pickers')renderPickers();if(pg==='alerts')renderAlerts();if(pg==='live')renderLive();
   });
-  onSnapshot(collection(db,'shortages'),snap=>{
+  onSnapshot(query(collection(db,'shortages'),where('startTs','>',ninetyDaysAgo)),snap=>{
     SHORTAGES=snap.docs.map(d=>{const x=d.data();return{id:d.id,orderId:x.orderId,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,date:x.date,product:x.product,bin:x.bin,qty:x.qty||0,resolution:x.resolution||'pending',notes:x.notes||'',startTs:tsMs(x.startTs),qtyLocated:x.qtyLocated??null,qtyRemaining:x.qtyRemaining??null,partialNote:x.partialNote||'',resolvedAt:tsMs(x.resolvedAt),processed:x.processed||false,processedAt:tsMs(x.processedAt)||null}});
     updateBadges();const pg=activePage();if(pg==='shortages')renderShortages();if(pg==='backorder')renderBackorder();
   });
@@ -1192,12 +1196,23 @@ async function doSubmit({orderNum,lines,pickerName,shift}){
       return;
     }
 
-    // DUPLICATE CHECK: same picker already completed this order today
-    const existingToday=ORDERS.find(o=>o.orderNum===orderNum&&o.pickerName.toLowerCase()===norm&&o.startTs>=opDayStart()&&o.status!=='open');
-    if(existingToday){
-      showSR('sr-warn','⚠️ Duplicate Order',`${orderNum} was already completed today by ${pickerName}. Order not created.`);
+    // DUPLICATE CHECK: order numbers are globally unique.
+    // Check in-memory cache first (90 days), then Firestore for anything older.
+    const existingInCache=ORDERS.find(o=>o.orderNum===orderNum&&o.status!=='open');
+    if(existingInCache){
+      showSR('sr-warn','⚠️ Duplicate Order',`${orderNum} was already completed by ${existingInCache.pickerName}. Order numbers are unique — this order cannot be re-scanned.`);
       clearScanForm();return;
     }
+    // Check Firestore for orders older than 90-day cache
+    try{
+      const oldSnap=await getDocs(query(collection(db,'orders'),where('orderNum','==',orderNum)));
+      const oldMatch=oldSnap.docs.find(d=>d.data().status!=='open');
+      if(oldMatch){
+        const od=oldMatch.data();
+        showSR('sr-warn','⚠️ Duplicate Order',`${orderNum} was already completed by ${od.pickerName||'another picker'}. Order numbers are unique — this order cannot be re-scanned.`);
+        clearScanForm();return;
+      }
+    }catch(e){/* non-fatal — proceed if index not ready */}
     // Open by a DIFFERENT picker?
     const openOtherPicker=ORDERS.find(o=>o.orderNum===orderNum&&o.status==='open');
     if(openOtherPicker){
