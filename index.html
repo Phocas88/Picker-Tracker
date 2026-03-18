@@ -206,7 +206,7 @@ tbody td{padding:8px 11px;font-size:12px}
       <div class="card-header"><div class="card-title">📷 Scan / Enter Order</div></div>
       <div class="card-body">
         <div class="form-group"><label>Order Number</label><input class="big" type="text" id="scanOrder" placeholder="Scan or type order #" autocomplete="off" autofocus></div>
-        <div class="form-group"><label>Lines on Order</label><input type="number" id="scanLines" placeholder="# of lines" min="1" style="font-size:15px;padding:10px 12px"></div>
+        <div class="form-group"><label>Lines on Order <span style="color:var(--red)">*</span></label><input type="number" id="scanLines" placeholder="# of lines" min="1" required style="font-size:15px;padding:10px 12px"></div>
         <div class="form-group"><label>Shift</label><select id="scanShift" onchange="refreshPickerDropdown()"><option value="1st">1st Shift</option><option value="2nd">2nd Shift</option></select></div>
         <div class="form-group">
           <label>Picker Name</label>
@@ -1140,6 +1140,7 @@ window.processOrder=function(){
   const pickerRaw=document.getElementById('scanPicker').value.trim();
   const shift=document.getElementById('scanShift').value;
   if(!orderRaw||!pickerRaw){showSR('sr-warn','⚠️ Missing Info','Enter order number and picker name.');return;}
+  if(!linesVal||linesVal<1){showSR('sr-warn','⚠️ Lines Required','Enter the number of lines on this order.');document.getElementById('scanLines').focus();return;}
   const pickerExists=PICKERS.some(p=>!p.deactivated&&!p.archived&&p.name.toLowerCase()===pickerRaw.toLowerCase());
   if(!pickerExists){showSR('sr-warn','⚠️ Unknown Picker',`"${pickerRaw}" is not on the roster. Add them in the Pickers screen first, then try again.`);return;}
   doSubmit({orderNum:orderRaw.toUpperCase(),lines:linesVal,pickerName:pickerRaw,shift});
