@@ -792,11 +792,11 @@ tbody td{padding:8px 11px;font-size:12px}
       <!-- Times & Lines -->
       <div class="form-group">
         <label>Start Date &amp; Time</label>
-        <div class="flex gap-8" id="editStartPicker"></div>
+        <div style="display:flex;gap:6px;flex-wrap:nowrap;align-items:center" id="editStartPicker"></div>
       </div>
       <div class="form-group" id="editOrderEndGroup">
         <label>Close Date &amp; Time</label>
-        <div class="flex gap-8" id="editEndPicker"></div>
+        <div style="display:flex;gap:6px;flex-wrap:nowrap;align-items:center" id="editEndPicker"></div>
         <div class="text-xs text-muted" style="margin-top:4px">Leave blank / clear to keep order open</div>
       </div>
       <div class="form-group">
@@ -816,7 +816,7 @@ tbody td{padding:8px 11px;font-size:12px}
         <div id="editOrderPauseRemaining" class="text-xs" style="margin-top:-4px;margin-bottom:10px;color:var(--purple)"></div>
         <div class="form-group">
           <label>Pause Date &amp; Time <span class="text-xs text-muted">(when picking stopped)</span></label>
-          <div class="flex gap-8" id="editPausePicker"></div>
+          <div style="display:flex;gap:6px;flex-wrap:nowrap;align-items:center" id="editPausePicker"></div>
         </div>
         <button class="btn btn-ghost" style="width:100%;border:2px solid var(--purple);color:var(--purple)" onclick="submitPauseFromEdit()">⏸ Pause Order for Next Shift</button>
       </div>
@@ -1568,12 +1568,12 @@ function buildDateTimePicker(containerId, onChange, opts={}){
   const clearBtn=opts.clearable?`<button type="button" onclick="clearDtPicker('${containerId}')" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text3);cursor:pointer;white-space:nowrap">Clear</button>`:'';
 
   el.innerHTML=`
-    <select id="${containerId}_date" style="font-size:13px;flex:1.8" onchange="dtPickerChange('${containerId}')">
+    <select id="${containerId}_date" style="font-size:13px;flex:2;min-width:0;padding:7px 4px" onchange="dtPickerChange('${containerId}')">
       <option value="">— Date —</option>${dateOptions('')}
     </select>
-    <select id="${containerId}_hr" style="font-size:13px;flex:.6" onchange="dtPickerChange('${containerId}')">${hrOpts}</select>
-    <select id="${containerId}_min" style="font-size:13px;flex:.6" onchange="dtPickerChange('${containerId}')">${minOpts}</select>
-    <select id="${containerId}_ampm" style="font-size:13px;flex:.7" onchange="dtPickerChange('${containerId}')">
+    <select id="${containerId}_hr" style="font-size:13px;flex:1;min-width:44px;padding:7px 2px;text-align:center" onchange="dtPickerChange('${containerId}')">${hrOpts}</select>
+    <select id="${containerId}_min" style="font-size:13px;flex:1;min-width:52px;padding:7px 2px;text-align:center" onchange="dtPickerChange('${containerId}')">${minOpts}</select>
+    <select id="${containerId}_ampm" style="font-size:13px;flex:1;min-width:52px;padding:7px 2px;text-align:center" onchange="dtPickerChange('${containerId}')">
       <option value="AM">AM</option><option value="PM">PM</option>
     </select>
     ${clearBtn}
