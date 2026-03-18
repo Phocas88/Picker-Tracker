@@ -610,18 +610,6 @@ tbody td{padding:8px 11px;font-size:12px}
     <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('handoffModal')">Cancel</button></div>
   </div>
 </div>
-
-<div class="modal-overlay modal-sm" id="confirmPickerModal">
-  <div class="modal"><div class="modal-head"><div class="modal-title">Confirm Picker</div><span class="modal-x" onclick="closeModal('confirmPickerModal')">×</span></div>
-    <div class="modal-body text-c">
-      <div class="text-xs text-muted mb-8">Is this the correct picker?</div>
-      <div style="font-size:20px;font-weight:700;color:var(--accent)" id="confirmPickerName"></div>
-      <div class="text-xs text-muted mt-4" id="confirmPickerShift"></div>
-    </div>
-    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('confirmPickerModal')">✗ No, Change</button><button class="btn btn-primary" onclick="confirmPickerAndSubmit()">✓ Yes, Correct</button></div>
-  </div>
-</div>
-
 <div class="modal-overlay modal-lg" id="shortageModal">
   <div class="modal"><div class="modal-head"><div class="modal-title">📦 Shortage Report</div><span class="modal-x" onclick="skipShortage()">×</span></div>
     <div class="modal-body">
@@ -1084,7 +1072,7 @@ function startListeners(){
 const activePage=()=>document.querySelector('.page.active')?.id?.replace('page-','')||'';
 
 // ── SCAN ─────────────────────────────────────────────
-let busy=false, pendingScan=null;
+let busy=false;
 
 window.processOrder=function(){
   if(busy)return;
@@ -1093,17 +1081,7 @@ window.processOrder=function(){
   const pickerRaw=document.getElementById('scanPicker').value.trim();
   const shift=document.getElementById('scanShift').value;
   if(!orderRaw||!pickerRaw){showSR('sr-warn','⚠️ Missing Info','Enter order number and picker name.');return;}
-  pendingScan={orderNum:orderRaw.toUpperCase(),lines:linesVal,pickerName:pickerRaw,shift};
-  document.getElementById('confirmPickerName').textContent=pickerRaw;
-  document.getElementById('confirmPickerShift').textContent=shift+' Shift';
-  openModal('confirmPickerModal');
-};
-
-window.confirmPickerAndSubmit=async function(){
-  closeModal('confirmPickerModal');
-  if(!pendingScan)return;
-  await doSubmit(pendingScan);
-  pendingScan=null;
+  doSubmit({orderNum:orderRaw.toUpperCase(),lines:linesVal,pickerName:pickerRaw,shift});
 };
 
 async function doSubmit({orderNum,lines,pickerName,shift}){
@@ -2776,16 +2754,11 @@ function renderSettingsUsers(){
   if(!el)return;
   if(!names.length){el.innerHTML='<div class="text-xs text-muted">No saved names yet.</div>';return;}
   el.innerHTML=names.map((n,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px">👤 ${n}</span><button class="btn btn-ghost btn-xs" onclick="removeSavedName(${i})">Remove</button></div>`).join('');
-  // Show version info
+  // Show local version — don't read Firestore just to display settings
   const lv=document.getElementById('localVersionDisplay');
   if(lv)lv.textContent=APP_VERSION;
-  // Fetch server version
-  getDocs(collection(db,'meta')).then(snap=>{
-    const meta=snap.docs.find(d=>d.id==='appVersion');
-    const sv=document.getElementById('serverVersionDisplay');
-    if(sv&&meta) sv.textContent=`Server version: ${meta.data().version}`;
-    else if(sv) sv.textContent='No server version set yet';
-  }).catch(()=>{});
+  const sv=document.getElementById('serverVersionDisplay');
+  if(sv)sv.textContent='(version check uses page headers — no reads)';
 }
 
 window.removeSavedName=function(idx){
@@ -2796,7 +2769,8 @@ window.removeSavedName=function(idx){
 window.initiatePushVersion=function(){
   requirePin('icm','🛡️ IC Manager PIN','Pushing a version update will reload the app for all users.',async()=>{
     try{
-      // Write new version to Firestore — all clients will detect mismatch and reload
+      // Primary: clients now auto-detect new versions via page header changes when you push to GitHub Pages.
+      // This Firestore write is a manual fallback for immediate forced reload on all tabs.
       const newVer=APP_VERSION+'.'+Date.now();
       const snap=await getDocs(collection(db,'meta'));
       const existing=snap.docs.find(d=>d.id==='appVersion');
@@ -2805,8 +2779,7 @@ window.initiatePushVersion=function(){
       } else {
         await addDoc(collection(db,'meta'),{version:newVer,pushedAt:Date.now()});
       }
-      alert(`Version ${newVer} pushed. All users will reload on their next page load or within 60 seconds.`);
-      renderSettingsUsers();
+      alert(`Version signal sent. All users will reload within 5 minutes (next version check cycle).\n\nNote: Simply pushing a new index.html to GitHub Pages is enough — users auto-detect it.`);
     }catch(e){alert('Error: '+e.message);}
   });
 };
@@ -3053,17 +3026,42 @@ const tick=()=>document.getElementById('liveTime').textContent=new Date().toLoca
 setInterval(tick,1000);tick();
 
 // Auto-refresh live + pickers pages every 30s so elapsed times stay current
+// Uses in-memory ORDERS/PICKERS cache — no Firestore reads
 setInterval(()=>{
   const pg=activePage();
   if(pg==='live')renderLive();
   if(pg==='pickers')renderPickers();
 },30000);
 
-// Poll for version updates every 60 seconds — auto-reload all clients when pushed
-setInterval(()=>{ checkVersion(); },60000);
-
-// ── APP VERSION (increment this to force all clients to reload) ──────────
+// ── APP VERSION ──────────────────────────────────────
 const APP_VERSION = '1.0.6';
+
+// Version check uses a lightweight HEAD request to the page itself (zero Firestore reads).
+// When you push a new index.html to GitHub Pages, the ETag/Last-Modified header changes
+// and clients reload automatically. Check every 5 minutes instead of every 60 seconds.
+let _lastPageEtag=null;
+async function checkVersion(){
+  try{
+    // Try fetching just the headers of the current page — no body download, no Firestore read
+    const res=await fetch(window.location.href,{method:'HEAD',cache:'no-store'});
+    const etag=res.headers.get('etag')||res.headers.get('last-modified')||null;
+    if(_lastPageEtag===null){_lastPageEtag=etag;return;}  // first run, baseline
+    if(etag&&etag!==_lastPageEtag){
+      console.log('New version detected via page header. Reloading.');
+      window.location.reload(true);
+    }
+  }catch(e){
+    // Fallback: still check Firestore meta, but only once every 10 minutes
+    // and only if the lightweight check failed (network issue etc.)
+    try{
+      const snap=await getDocs(collection(db,'meta'));
+      const meta=snap.docs.find(d=>d.id==='appVersion');
+      if(meta){const v=meta.data().version;if(v&&v!==APP_VERSION)window.location.reload(true);}
+    }catch(e2){}
+  }
+}
+// Check every 5 minutes (300s) instead of every 60s — 5x fewer reads
+setInterval(()=>{ checkVersion(); },300000);
 
 // ── BOOT ─────────────────────────────────────────────
 async function boot(){
