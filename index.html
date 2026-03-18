@@ -1888,10 +1888,18 @@ window.renderLive=function(){
   const pmap={};
   activePickers.forEach(p=>{
     const myOrders=todayOrders.filter(o=>o.pickerName===p.name);
-    const done=myOrders.filter(o=>o.status!=='open'&&o.endTs&&o.startTs);
+    const done=myOrders.filter(o=>{
+      // Count as "done" for KPI: closed, backorder_done, partial_located, backorder_redrop, order_canceled, handoff_done
+      // Also count paused (picker gets credit for pickedLines even though order isn't closed)
+      // Exclude: open (still in progress), backorder (pending IC), paused still-active
+      const counted=['closed','backorder_done','partial_located','backorder_redrop','order_canceled','handoff_done','paused'];
+      if(!counted.includes(o.status))return false;
+      if(o.status==='paused')return true; // paused has no endTs but still has pickedLines credit
+      return o.endTs&&o.startTs; // all others need both timestamps for lph calc
+    });
     const openOrd=myOrders.find(o=>o.status==='open');
     const lines=done.reduce((a,o)=>a+(o.pickedLines||o.lines||0),0);
-    let pickMs=done.reduce((a,o)=>a+(o.endTs-o.startTs),0);
+    let pickMs=done.filter(o=>o.endTs&&o.startTs).reduce((a,o)=>a+(o.endTs-o.startTs),0);
     if(pickMs>3*3600000) pickMs=Math.max(pickMs-BREAK_MS,pickMs*0.7);
     const lph=(done.length>=2||pickMs>=30*60000)&&lines>0?(lines/(pickMs/3600000)):null;
     // Dominant division: division appearing most in today's orders
@@ -3017,9 +3025,9 @@ window.closeModal=id=>document.getElementById(id).classList.remove('open');
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 
 // ── KEYBOARD ─────────────────────────────────────────
-document.getElementById('scanOrder').addEventListener('keydown',e=>{if(e.key!=='Enter')return;const l=document.getElementById('scanLines').value.trim();if(!l){document.getElementById('scanLines').focus();return;}const pk=document.getElementById('scanPicker').value.trim();if(pk)processOrder();else document.getElementById('scanPicker').focus();});
-document.getElementById('scanLines').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('scanPicker').focus();});
-document.getElementById('scanPicker').addEventListener('keydown',e=>{if(e.key==='Enter')processOrder();});
+document.getElementById("scanOrder")?.addEventListener("keydown",e=>{if(e.key!=="Enter")return;const l=document.getElementById("scanLines").value.trim();if(!l){document.getElementById("scanLines").focus();return;}const pk=document.getElementById("scanPicker").value.trim();if(pk)processOrder();else document.getElementById("scanPicker").focus();});
+document.getElementById("scanLines")?.addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("scanPicker").focus();});
+document.getElementById("scanPicker")?.addEventListener("keydown",e=>{if(e.key==="Enter")processOrder();});
 
 // ── CLOCK ─────────────────────────────────────────────
 const tick=()=>document.getElementById('liveTime').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+'  '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -3096,20 +3104,6 @@ function restoreSession(){
   }catch(e){}
 }
 
-async function checkVersion(){
-  try{
-    // Store version in Firestore meta collection — if server version differs, reload
-    const snap=await getDocs(collection(db,'meta'));
-    const meta=snap.docs.find(d=>d.id==='appVersion');
-    if(meta){
-      const serverVer=meta.data().version;
-      if(serverVer&&serverVer!==APP_VERSION){
-        console.log(`Version mismatch: local=${APP_VERSION} server=${serverVer}. Reloading.`);
-        window.location.reload(true);
-      }
-    }
-  }catch(e){}
-}
 boot();
 </script>
 </body>
