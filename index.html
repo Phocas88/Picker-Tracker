@@ -3,104 +3,278 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BC Warehouse — System Notice</title>
+<title>Chapman Pick Demand & KPI Tracker — System Notice</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;600;700;800&family=Barlow+Condensed:wght@600;700;800&display=swap');
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
   :root {
-    --bg: #0e1117; --surface: #161b25; --border: #1e2736;
-    --amber: #f59e0b; --amber-dim: rgba(245,158,11,0.08); --amber-border: rgba(245,158,11,0.25);
-    --red: #ef4444; --green: #22c55e; --green-dim: rgba(34,197,94,0.08); --green-border: rgba(34,197,94,0.25);
-    --text: #e2e8f0; --text2: #94a3b8; --text3: #475569;
+    --bg: #0a0f1a;
+    --surface: #111827;
+    --border: #1e293b;
+    --blue-bright: #2196f3;
+    --blue-dark: #0d2a4a;
+    --blue-mid: #1565c0;
+    --amber: #f59e0b;
+    --amber-dim: rgba(245,158,11,0.08);
+    --amber-border: rgba(245,158,11,0.22);
+    --red: #ef4444;
+    --green: #22c55e;
+    --green-dim: rgba(34,197,94,0.09);
+    --green-border: rgba(34,197,94,0.28);
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #475569;
   }
+
   html, body {
-    height: 100%; background: var(--bg); color: var(--text);
-    font-family: 'IBM Plex Sans', sans-serif;
-    display: flex; align-items: center; justify-content: center; min-height: 100vh;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
   }
+
+  /* Subtle dot grid */
   body::before {
-    content: ''; position: fixed; inset: 0;
-    background-image: linear-gradient(rgba(245,158,11,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(245,158,11,0.03) 1px, transparent 1px);
-    background-size: 40px 40px; pointer-events: none;
+    content: '';
+    position: fixed; inset: 0;
+    background-image: radial-gradient(rgba(33,150,243,0.07) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
   }
-  .container { max-width: 620px; width: 90%; padding: 20px; position: relative; z-index: 1; }
-  .top-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 36px; }
-  .logo { font-size: 22px; }
-  .app-name { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; color: var(--text2); letter-spacing: 1px; text-transform: uppercase; }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); box-shadow: 0 0 8px var(--red); animation: pulse 2s ease-in-out infinite; margin-left: auto; }
-  .status-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--red); letter-spacing: .5px; }
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
-  .card-header { background: var(--amber-dim); border-bottom: 1px solid var(--amber-border); padding: 16px 22px; display: flex; align-items: center; gap: 12px; }
-  .warn-icon { font-size: 18px; flex-shrink: 0; }
-  .card-title { font-size: 12px; font-weight: 700; color: var(--amber); letter-spacing: .5px; text-transform: uppercase; }
-  .card-body { padding: 24px 24px 28px; }
-  .headline { font-size: 20px; font-weight: 700; line-height: 1.35; color: var(--text); margin-bottom: 14px; }
-  .body-text { font-size: 14px; line-height: 1.7; color: var(--text2); margin-bottom: 20px; }
+  /* Blue glow top */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -120px; left: 50%; transform: translateX(-50%);
+    width: 700px; height: 300px;
+    background: radial-gradient(ellipse, rgba(33,150,243,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
 
-  .reason-box { background: var(--bg); border: 1px solid var(--border); border-left: 3px solid var(--amber); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; }
-  .reason-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
-  .reason-text { font-size: 13px; line-height: 1.65; color: var(--text); }
+  .wrapper {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 640px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+
+  /* ── LOGO HEADER ─────────────────────────────── */
+  .logo-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 28px 24px 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    border-top: 3px solid var(--blue-bright);
+  }
+
+  .logo-img {
+    width: 220px;
+    height: auto;
+    filter: drop-shadow(0 0 18px rgba(33,150,243,0.3));
+  }
+
+  .app-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text2);
+    text-align: center;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 2px;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--red);
+    box-shadow: 0 0 8px var(--red);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .status-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--red);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ── NOTICE CARD ─────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    background: var(--amber-dim);
+    border-bottom: 1px solid var(--amber-border);
+    padding: 14px 22px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .card-header-title {
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: var(--amber);
+  }
+
+  .card-body { padding: 22px 24px 26px; }
+
+  .headline {
+    font-size: 19px; font-weight: 700;
+    line-height: 1.35; color: var(--text);
+    margin-bottom: 12px;
+  }
+
+  .body-text {
+    font-size: 13.5px; line-height: 1.7;
+    color: var(--text2); margin-bottom: 20px;
+  }
+
+  .reason-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--amber);
+    border-radius: 8px;
+    padding: 14px 18px; margin-bottom: 22px;
+  }
+  .reason-label {
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--text3); margin-bottom: 8px;
+  }
+  .reason-text {
+    font-size: 13.5px; line-height: 1.65; color: var(--text);
+  }
   .reason-text strong { color: var(--amber); font-weight: 600; }
 
-  .steps-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; }
-  .action-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
-  .action-item { display: flex; align-items: flex-start; gap: 12px; font-size: 13px; color: var(--text2); line-height: 1.5; }
-  .action-num { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: var(--amber); background: var(--amber-dim); border: 1px solid var(--amber-border); border-radius: 4px; padding: 1px 7px; flex-shrink: 0; margin-top: 1px; }
+  .steps-label {
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--text3); margin-bottom: 12px;
+  }
+  .action-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 0; }
+  .action-item { display: flex; align-items: flex-start; gap: 12px; font-size: 13.5px; color: var(--text2); line-height: 1.5; }
+  .action-num {
+    font-size: 10px; font-weight: 700;
+    color: var(--amber); background: var(--amber-dim);
+    border: 1px solid var(--amber-border);
+    border-radius: 4px; padding: 2px 7px;
+    flex-shrink: 0; margin-top: 2px; letter-spacing: .5px;
+  }
+  .action-item b { color: var(--text); font-weight: 600; }
 
-  /* Sheets CTA card */
-  .sheets-card { background: var(--surface); border: 1px solid var(--green-border); border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
-  .sheets-header { background: var(--green-dim); border-bottom: 1px solid var(--green-border); padding: 14px 22px; display: flex; align-items: center; gap: 10px; }
-  .sheets-title { font-size: 12px; font-weight: 700; color: var(--green); letter-spacing: .5px; text-transform: uppercase; }
-  .sheets-body { padding: 22px 24px 24px; }
-  .sheets-desc { font-size: 13px; color: var(--text2); line-height: 1.6; margin-bottom: 18px; }
-  .sheets-desc strong { color: var(--text); }
+  .card-footer {
+    border-top: 1px solid var(--border);
+    padding: 13px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
+  }
+  .footer-ts { font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums; }
+  .footer-contact { font-size: 12px; color: var(--text3); }
+  .footer-contact b { color: var(--text2); }
+
+  /* ── SHEETS CTA ──────────────────────────────── */
+  .sheets-card {
+    background: var(--surface);
+    border: 1px solid var(--green-border);
+    border-radius: 12px; overflow: hidden;
+  }
+  .sheets-header {
+    background: var(--green-dim);
+    border-bottom: 1px solid var(--green-border);
+    padding: 13px 22px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sheets-header-title {
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: var(--green);
+  }
+  .sheets-body { padding: 20px 24px 22px; }
+  .sheets-desc {
+    font-size: 13.5px; color: var(--text2);
+    line-height: 1.65; margin-bottom: 16px;
+  }
+  .sheets-desc b { color: var(--text); }
+
   .sheets-btn {
     display: flex; align-items: center; justify-content: center; gap: 10px;
-    width: 100%; padding: 14px 20px;
-    background: var(--green); color: #0a1a0a;
-    font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 700;
-    border: none; border-radius: 8px; cursor: pointer; text-decoration: none;
-    transition: opacity .15s, transform .1s;
+    width: 100%; padding: 13px 20px;
+    background: var(--green); color: #052e0f;
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px; font-weight: 700;
+    border: none; border-radius: 8px;
+    cursor: pointer; text-decoration: none;
+    transition: opacity .15s, transform .12s;
+    letter-spacing: .3px;
   }
-  .sheets-btn:hover { opacity: .9; transform: translateY(-1px); }
-  .sheets-btn:active { transform: translateY(0); }
-  .sheets-icon { font-size: 18px; }
+  .sheets-btn:hover { opacity: .88; transform: translateY(-1px); }
+  .sheets-btn:active { transform: translateY(0); opacity: 1; }
 
-  .card-footer { border-top: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-  .timestamp { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text3); }
-  .contact { font-size: 12px; color: var(--text3); }
-  .contact strong { color: var(--text2); }
-  .clock { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text3); text-align: right; margin-top: 16px; }
+  /* ── CLOCK ───────────────────────────────────── */
+  .clock {
+    font-size: 11px; color: var(--text3);
+    text-align: center; letter-spacing: .3px;
+    font-variant-numeric: tabular-nums;
+  }
 </style>
 </head>
 <body>
-<div class="container">
+<div class="wrapper">
 
-  <div class="top-bar">
-    <div class="logo">📦</div>
-    <div class="app-name">BC Warehouse · Pick Tracker</div>
-    <div class="status-dot"></div>
-    <div class="status-label">System Down</div>
+  <!-- Logo header -->
+  <div class="logo-header">
+    <img class="logo-img" src="https://i.ibb.co/placeholder/mdp-logo.png"
+         onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"
+         alt="Mendoza Data Products">
+    <!-- Fallback if image fails to load -->
+    <div id="logoFallback" style="display:none;flex-direction:column;align-items:center;gap:6px">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:48px;font-weight:800;background:linear-gradient(135deg,#2196f3,#0d2a4a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-1px">MDP</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:4px;color:var(--text2)">MENDOZA DATA PRODUCTS</div>
+    </div>
+    <div class="app-title">Chapman Pick Demand &amp; KPI Tracker</div>
+    <div class="status-row">
+      <div class="status-dot"></div>
+      <div class="status-text">System Offline</div>
+    </div>
   </div>
 
-  <!-- Main notice card -->
+  <!-- Main notice -->
   <div class="card">
     <div class="card-header">
-      <div class="warn-icon">⚠️</div>
-      <div class="card-title">System Maintenance — Action Required</div>
+      <span>⚠️</span>
+      <div class="card-header-title">Planned Maintenance — Action Required</div>
     </div>
     <div class="card-body">
-      <div class="headline">The Pick Tracker is temporarily offline.</div>
+      <div class="headline">The Pick Demand &amp; KPI Tracker is temporarily offline.</div>
       <div class="body-text">
-        A process issue has been identified that requires the system to be taken offline for cleanup and correction before normal operations resume.
+        A process issue has been identified and the system has been taken offline for backend cleanup and correction before operations resume.
       </div>
 
       <div class="reason-box">
         <div class="reason-label">Root Cause</div>
         <div class="reason-text">
-          <strong>Orders are being left open between shifts.</strong> When pickers do not close or pause their orders before leaving, those orders carry over into the next shift — causing a backend data cleanup issue and <strong>skewing KPI results</strong> for lines picked, lines/hour, and order completion rates across all divisions. The system has been reset to restore data integrity.
+          <strong>Orders are being left open between shifts.</strong> When pick demands are not closed or paused before a picker leaves their shift, those orders carry into the next shift — causing a <strong>backend cleanup issue</strong> and <strong>skewing KPI results</strong> for lines picked, lines/hour, and order completion rates across all Chapman divisions. The system is being reset to restore data accuracy.
         </div>
       </div>
 
@@ -108,61 +282,91 @@
       <div class="action-list">
         <div class="action-item">
           <span class="action-num">01</span>
-          <span>Use the <strong style="color:var(--text)">Google Sheets log below</strong> to record your orders manually until the system is restored.</span>
+          <span>Use the <b>Google Sheets log below</b> to record your pick demands manually until the system is back online.</span>
         </div>
         <div class="action-item">
           <span class="action-num">02</span>
-          <span>Do <strong style="color:var(--text)">not</strong> attempt to log into the app — it will display an error.</span>
+          <span>Do <b>not</b> attempt to log into the app — it will display an error.</span>
         </div>
         <div class="action-item">
           <span class="action-num">03</span>
-          <span>When the app is restored, <strong style="color:var(--text)">always close or pause your order before leaving your shift.</strong></span>
+          <span>When the system is restored, <b>always close or pause your pick demand before leaving your shift.</b></span>
         </div>
         <div class="action-item">
           <span class="action-num">04</span>
-          <span>Contact <strong style="color:var(--text)">Ruben</strong> directly for urgent orders or questions.</span>
+          <span>Contact <b>Ruben — IC Manager</b> directly for urgent orders or questions.</span>
         </div>
       </div>
     </div>
     <div class="card-footer">
-      <div class="timestamp" id="downTs"></div>
-      <div class="contact">Questions? Contact <strong>Ruben — IC Manager</strong></div>
+      <div class="footer-ts" id="downTs"></div>
+      <div class="footer-contact">Contact: <b>Ruben — IC Manager</b></div>
     </div>
   </div>
 
-  <!-- Google Sheets CTA -->
+  <!-- Sheets CTA -->
   <div class="sheets-card">
     <div class="sheets-header">
-      <div class="warn-icon">📋</div>
-      <div class="sheets-title">Use This Sheet While the App is Down</div>
+      <span>📋</span>
+      <div class="sheets-header-title">Manual Log — Use This While the App is Down</div>
     </div>
     <div class="sheets-body">
       <div class="sheets-desc">
-        Enter your orders here in the meantime. Include your <strong>name, order number, division, lines, and shift</strong>. This data will be used to backfill the system when it comes back online.
+        Enter your pick demands here. Include your <b>name, pick demand number, division, lines, and shift</b>. This data will be used to backfill the system when it comes back online.
       </div>
-      <a class="sheets-btn" href="https://docs.google.com/spreadsheets/d/1yHZhYU1TGS2y5WCjajlMSaaEfh9aq8LWEJCYhO1k8n4/edit?usp=sharing" target="_blank" rel="noopener">
-        <span class="sheets-icon">📊</span>
-        Open Order Log — Google Sheets
+      <a class="sheets-btn"
+         href="https://docs.google.com/spreadsheets/d/1yHZhYU1TGS2y5WCjajlMSaaEfh9aq8LWEJCYhO1k8n4/edit?usp=sharing"
+         target="_blank" rel="noopener">
+        <span>📊</span>
+        Open Pick Demand Log — Google Sheets
       </a>
     </div>
   </div>
 
   <div class="clock" id="clock"></div>
+
 </div>
 
 <script>
-  const now = new Date();
+  // Embed the logo as base64 so it works on GitHub Pages without a separate image file
+  // Since we can't fetch the uploaded image here, we'll show the text fallback
+  // and you can replace the src below with an actual hosted image URL if desired
+  document.getElementById('logoFallback').style.display = 'flex';
+
+  // Downtime timestamp (set once on load)
+  const boot = new Date();
   document.getElementById('downTs').textContent =
-    'Down since: ' + now.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) +
-    ' · ' + now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-  function tick(){
+    'Down since: ' +
+    boot.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) +
+    ' · ' +
+    boot.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+
+  // Live clock
+  function tick() {
     const d = new Date();
     document.getElementById('clock').textContent =
-      'Current time: ' +
       d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}) +
-      ' · ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      ' · ' +
+      d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }
-  setInterval(tick,1000); tick();
+  setInterval(tick, 1000); tick();
+
+  // ── AUTO FORCE-REFRESH other tabs/computers ───────────────────────────────
+  // Checks for a new version every 60 seconds by fetching this page's headers.
+  // When GitHub Pages serves a new build, the ETag changes → all clients reload.
+  let _lastEtag = null;
+  async function checkForUpdate() {
+    try {
+      const res = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
+      const etag = res.headers.get('etag') || res.headers.get('last-modified');
+      if (_lastEtag && etag && etag !== _lastEtag) {
+        window.location.reload(true);
+      }
+      if (etag) _lastEtag = etag;
+    } catch(e) {}
+  }
+  setInterval(checkForUpdate, 60000);
+  checkForUpdate();
 </script>
 </body>
 </html>
