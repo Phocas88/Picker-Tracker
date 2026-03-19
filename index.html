@@ -14,8 +14,6 @@
     --surface: #111827;
     --border: #1e293b;
     --blue-bright: #2196f3;
-    --blue-dark: #0d2a4a;
-    --blue-mid: #1565c0;
     --amber: #f59e0b;
     --amber-dim: rgba(245,158,11,0.08);
     --amber-border: rgba(245,158,11,0.22);
@@ -40,7 +38,6 @@
     padding: 24px 16px;
   }
 
-  /* Subtle dot grid */
   body::before {
     content: '';
     position: fixed; inset: 0;
@@ -49,7 +46,6 @@
     pointer-events: none;
   }
 
-  /* Blue glow top */
   body::after {
     content: '';
     position: fixed;
@@ -65,13 +61,13 @@
     display: flex; flex-direction: column; gap: 14px;
   }
 
-  /* ── LOGO HEADER ─────────────────────────────── */
+  /* ── LOGO HEADER ── */
   .logo-header {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    padding: 28px 24px 24px;
+    gap: 14px;
+    padding: 32px 24px 26px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 14px;
@@ -79,16 +75,16 @@
   }
 
   .logo-img {
-    width: 220px;
+    width: 240px;
     height: auto;
-    filter: drop-shadow(0 0 18px rgba(33,150,243,0.3));
+    filter: drop-shadow(0 0 20px rgba(33,150,243,0.35));
   }
 
   .app-title {
     font-family: 'Barlow Condensed', sans-serif;
     font-size: 15px;
     font-weight: 700;
-    letter-spacing: 2px;
+    letter-spacing: 2.5px;
     text-transform: uppercase;
     color: var(--text2);
     text-align: center;
@@ -99,7 +95,6 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin-top: 2px;
   }
   .status-dot {
     width: 8px; height: 8px;
@@ -110,14 +105,13 @@
   }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
   .status-text {
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 11px; font-weight: 700;
     color: var(--red);
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
     text-transform: uppercase;
   }
 
-  /* ── NOTICE CARD ─────────────────────────────── */
+  /* ── NOTICE CARD ── */
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -162,9 +156,7 @@
     letter-spacing: 1.2px; text-transform: uppercase;
     color: var(--text3); margin-bottom: 8px;
   }
-  .reason-text {
-    font-size: 13.5px; line-height: 1.65; color: var(--text);
-  }
+  .reason-text { font-size: 13.5px; line-height: 1.65; color: var(--text); }
   .reason-text strong { color: var(--amber); font-weight: 600; }
 
   .steps-label {
@@ -172,14 +164,14 @@
     letter-spacing: 1.2px; text-transform: uppercase;
     color: var(--text3); margin-bottom: 12px;
   }
-  .action-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 0; }
+  .action-list { display: flex; flex-direction: column; gap: 10px; }
   .action-item { display: flex; align-items: flex-start; gap: 12px; font-size: 13.5px; color: var(--text2); line-height: 1.5; }
   .action-num {
     font-size: 10px; font-weight: 700;
     color: var(--amber); background: var(--amber-dim);
     border: 1px solid var(--amber-border);
     border-radius: 4px; padding: 2px 7px;
-    flex-shrink: 0; margin-top: 2px; letter-spacing: .5px;
+    flex-shrink: 0; margin-top: 2px;
   }
   .action-item b { color: var(--text); font-weight: 600; }
 
@@ -189,11 +181,11 @@
     display: flex; align-items: center; justify-content: space-between;
     flex-wrap: wrap; gap: 8px;
   }
-  .footer-ts { font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums; }
+  .footer-ts { font-size: 11px; color: var(--text3); }
   .footer-contact { font-size: 12px; color: var(--text3); }
   .footer-contact b { color: var(--text2); }
 
-  /* ── SHEETS CTA ──────────────────────────────── */
+  /* ── SHEETS CTA ── */
   .sheets-card {
     background: var(--surface);
     border: 1px solid var(--green-border);
@@ -211,10 +203,7 @@
     color: var(--green);
   }
   .sheets-body { padding: 20px 24px 22px; }
-  .sheets-desc {
-    font-size: 13.5px; color: var(--text2);
-    line-height: 1.65; margin-bottom: 16px;
-  }
+  .sheets-desc { font-size: 13.5px; color: var(--text2); line-height: 1.65; margin-bottom: 16px; }
   .sheets-desc b { color: var(--text); }
 
   .sheets-btn {
@@ -226,15 +215,13 @@
     border: none; border-radius: 8px;
     cursor: pointer; text-decoration: none;
     transition: opacity .15s, transform .12s;
-    letter-spacing: .3px;
   }
   .sheets-btn:hover { opacity: .88; transform: translateY(-1px); }
-  .sheets-btn:active { transform: translateY(0); opacity: 1; }
+  .sheets-btn:active { transform: translateY(0); }
 
-  /* ── CLOCK ───────────────────────────────────── */
   .clock {
     font-size: 11px; color: var(--text3);
-    text-align: center; letter-spacing: .3px;
+    text-align: center;
     font-variant-numeric: tabular-nums;
   }
 </style>
@@ -244,14 +231,7 @@
 
   <!-- Logo header -->
   <div class="logo-header">
-    <img class="logo-img" src="https://i.ibb.co/placeholder/mdp-logo.png"
-         onerror="this.style.display='none';document.getElementById('logoFallback').style.display='flex'"
-         alt="Mendoza Data Products">
-    <!-- Fallback if image fails to load -->
-    <div id="logoFallback" style="display:none;flex-direction:column;align-items:center;gap:6px">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:48px;font-weight:800;background:linear-gradient(135deg,#2196f3,#0d2a4a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-1px">MDP</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:4px;color:var(--text2)">MENDOZA DATA PRODUCTS</div>
-    </div>
+    <img class="logo-img" src="./logo.png" alt="Mendoza Data Products">
     <div class="app-title">Chapman Pick Demand &amp; KPI Tracker</div>
     <div class="status-row">
       <div class="status-dot"></div>
@@ -328,12 +308,7 @@
 </div>
 
 <script>
-  // Embed the logo as base64 so it works on GitHub Pages without a separate image file
-  // Since we can't fetch the uploaded image here, we'll show the text fallback
-  // and you can replace the src below with an actual hosted image URL if desired
-  document.getElementById('logoFallback').style.display = 'flex';
-
-  // Downtime timestamp (set once on load)
+  // Downtime timestamp
   const boot = new Date();
   document.getElementById('downTs').textContent =
     'Down since: ' +
@@ -346,22 +321,17 @@
     const d = new Date();
     document.getElementById('clock').textContent =
       d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}) +
-      ' · ' +
-      d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      ' · ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }
   setInterval(tick, 1000); tick();
 
-  // ── AUTO FORCE-REFRESH other tabs/computers ───────────────────────────────
-  // Checks for a new version every 60 seconds by fetching this page's headers.
-  // When GitHub Pages serves a new build, the ETag changes → all clients reload.
+  // Auto force-refresh all open tabs when a new build is pushed to GitHub Pages
   let _lastEtag = null;
   async function checkForUpdate() {
     try {
       const res = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
       const etag = res.headers.get('etag') || res.headers.get('last-modified');
-      if (_lastEtag && etag && etag !== _lastEtag) {
-        window.location.reload(true);
-      }
+      if (_lastEtag && etag && etag !== _lastEtag) window.location.reload(true);
       if (etag) _lastEtag = etag;
     } catch(e) {}
   }
