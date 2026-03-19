@@ -1120,14 +1120,14 @@ function mapShortage(d){const x=d.data();return{id:d.id,orderId:x.orderId,orderN
 
 let _pollTimer=null;
 const POLL_MS=30000; // refresh every 30 seconds
-const ninetyDaysAgo=()=>Date.now()-(90*24*60*60*1000);
+const thirtyDaysAgo=()=>Date.now()-(30*24*60*60*1000);
 
 async function fetchAll(){
   try{
     const [oSnap,pSnap,sSnap]=await Promise.all([
-      getDocs(query(collection(db,'orders'),where('startTs','>',ninetyDaysAgo()))),
+      getDocs(query(collection(db,'orders'),where('startTs','>',thirtyDaysAgo()))),
       getDocs(collection(db,'pickers')),
-      getDocs(query(collection(db,'shortages'),where('startTs','>',ninetyDaysAgo())))
+      getDocs(query(collection(db,'shortages'),where('startTs','>',thirtyDaysAgo())))
     ]);
     ORDERS=oSnap.docs.map(mapOrder);
     PICKERS=pSnap.docs.map(mapPicker);
