@@ -848,7 +848,7 @@ tbody td{padding:8px 11px;font-size:12px}
 <script type="module">
 import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, doc, addDoc, updateDoc,
-         getDocs, onSnapshot, writeBatch, deleteDoc, query, where }
+         getDocs, writeBatch, deleteDoc, query, where }
                                from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ── CONFIG ───────────────────────────────────────────
@@ -1108,28 +1108,57 @@ function buildNumpad(containerId, handler){
   el.querySelectorAll('.numpad-btn').forEach(btn=>{btn.onclick=()=>handler(btn.textContent.trim());});
 }
 
-// ── FIREBASE LISTENERS ────────────────────────────────
-function startListeners(){
-  // Scope listeners to last 90 days — massively reduces reads per snapshot event.
-  // Archive queries beyond 90 days will still work via the unscoped getDocs fallback in renderArchive.
-  const ninetyDaysAgo=Date.now()-(90*24*60*60*1000);
+// ── DATA LAYER: POLL INSTEAD OF STREAM ───────────────
+// onSnapshot re-delivers the ENTIRE result set on every change to every tab.
+// With 500+ orders × 4 tabs × 50 scans/day = 100K+ reads/day.
+// Polling with getDocs reads once per interval — flat cost regardless of how
+// many other tabs are open or how many changes happen between polls.
 
-  onSnapshot(query(collection(db,'orders'),where('startTs','>',ninetyDaysAgo)),snap=>{
-    ORDERS=snap.docs.map(d=>{const x=d.data();return{id:d.id,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,shift:x.shift,date:x.date,startTs:tsMs(x.startTs),endTs:tsMs(x.endTs),status:x.status,lines:x.lines||0,pickedLines:x.pickedLines!==undefined?x.pickedLines:x.lines||0,hasShortage:x.hasShortage||false,backorderDone:x.backorderDone||false,pausedBy:x.pausedBy||null,pausedAt:tsMs(x.pausedAt)||null,pausedNote:x.pausedNote||null,pausedLinesRemaining:x.pausedLinesRemaining??null,handoffTo:x.handoffTo||null,resumedFromPause:x.resumedFromPause||false,canceledBy:x.canceledBy||null}});
-    renderTodayFeed();updateBadges();
-    const pg=activePage();
-    if(pg==='dashboard')renderDashboard();if(pg==='open-orders')renderOpenOrders();if(pg==='divisions')renderDivisions();if(pg==='open24')renderOpen24();if(pg==='archive')renderArchive();if(pg==='backorder')renderBackorder();
-    if(pg==='live')renderLive();if(pg==='pickers')renderPickers();
-  });
-  onSnapshot(collection(db,'pickers'),snap=>{
-    PICKERS=snap.docs.map(d=>{const x=d.data();return{id:d.id,name:x.name,shift:x.shift,addedTs:tsMs(x.addedTs),lastActiveTs:tsMs(x.lastActiveTs),archived:x.archived||false,deactivated:x.deactivated||false}});
+function mapOrder(d){const x=d.data();return{id:d.id,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,shift:x.shift,date:x.date,startTs:tsMs(x.startTs),endTs:tsMs(x.endTs),status:x.status,lines:x.lines||0,pickedLines:x.pickedLines!==undefined?x.pickedLines:x.lines||0,hasShortage:x.hasShortage||false,backorderDone:x.backorderDone||false,pausedBy:x.pausedBy||null,pausedAt:tsMs(x.pausedAt)||null,pausedNote:x.pausedNote||null,pausedLinesRemaining:x.pausedLinesRemaining??null,handoffTo:x.handoffTo||null,resumedFromPause:x.resumedFromPause||false,canceledBy:x.canceledBy||null};}
+function mapPicker(d){const x=d.data();return{id:d.id,name:x.name,shift:x.shift,addedTs:tsMs(x.addedTs),lastActiveTs:tsMs(x.lastActiveTs),archived:x.archived||false,deactivated:x.deactivated||false};}
+function mapShortage(d){const x=d.data();return{id:d.id,orderId:x.orderId,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,date:x.date,product:x.product,bin:x.bin,qty:x.qty||0,resolution:x.resolution||'pending',notes:x.notes||'',startTs:tsMs(x.startTs),qtyLocated:x.qtyLocated??null,qtyRemaining:x.qtyRemaining??null,partialNote:x.partialNote||'',resolvedAt:tsMs(x.resolvedAt),processed:x.processed||false,processedAt:tsMs(x.processedAt)||null};}
+
+let _pollTimer=null;
+const POLL_MS=30000; // refresh every 30 seconds
+const ninetyDaysAgo=()=>Date.now()-(90*24*60*60*1000);
+
+async function fetchAll(){
+  try{
+    const [oSnap,pSnap,sSnap]=await Promise.all([
+      getDocs(query(collection(db,'orders'),where('startTs','>',ninetyDaysAgo()))),
+      getDocs(collection(db,'pickers')),
+      getDocs(query(collection(db,'shortages'),where('startTs','>',ninetyDaysAgo())))
+    ]);
+    ORDERS=oSnap.docs.map(mapOrder);
+    PICKERS=pSnap.docs.map(mapPicker);
+    SHORTAGES=sSnap.docs.map(mapShortage);
     refreshDatalist();populateArchPickers();updateBadges();
-    const pg=activePage();if(pg==='pickers')renderPickers();if(pg==='alerts')renderAlerts();if(pg==='live')renderLive();
-  });
-  onSnapshot(query(collection(db,'shortages'),where('startTs','>',ninetyDaysAgo)),snap=>{
-    SHORTAGES=snap.docs.map(d=>{const x=d.data();return{id:d.id,orderId:x.orderId,orderNum:x.orderNum,division:x.division,pickerName:x.pickerName,date:x.date,product:x.product,bin:x.bin,qty:x.qty||0,resolution:x.resolution||'pending',notes:x.notes||'',startTs:tsMs(x.startTs),qtyLocated:x.qtyLocated??null,qtyRemaining:x.qtyRemaining??null,partialNote:x.partialNote||'',resolvedAt:tsMs(x.resolvedAt),processed:x.processed||false,processedAt:tsMs(x.processedAt)||null}});
-    updateBadges();const pg=activePage();if(pg==='shortages')renderShortages();if(pg==='backorder')renderBackorder();
-  });
+    renderTodayFeed();
+    const pg=activePage();
+    if(pg==='dashboard')renderDashboard();
+    if(pg==='open-orders')renderOpenOrders();
+    if(pg==='live')renderLive();
+    if(pg==='pickers')renderPickers();
+    if(pg==='shortages')renderShortages();
+    if(pg==='backorder')renderBackorder();
+    if(pg==='archive')renderArchive();
+    if(pg==='open24')renderOpen24();
+    if(pg==='divisions')renderDivisions();
+    if(pg==='alerts')renderAlerts();
+  }catch(e){console.error('fetchAll error:',e);}
+}
+
+// Called after every write so the UI reflects the change immediately
+// without waiting for the next poll cycle
+window.refreshData=async function(){await fetchAll();};
+
+function startListeners(){
+  // Initial load
+  fetchAll();
+  // Poll every 30s — 30s × 3 reads per poll × 4 tabs = 864 reads/day max
+  _pollTimer=setInterval(()=>{
+    if(!_tabHidden)fetchAll();
+  },POLL_MS);
 }
 
 const activePage=()=>document.querySelector('.page.active')?.id?.replace('page-','')||'';
@@ -1494,7 +1523,7 @@ window.submitWithShortage=async function(){
   clearScanForm();
 };
 
-function clearScanForm(){document.getElementById('scanOrder').value='';document.getElementById('scanLines').value='';document.getElementById('scanOrder').focus();}
+function clearScanForm(){document.getElementById('scanOrder').value='';document.getElementById('scanLines').value='';document.getElementById('scanOrder').focus();refreshData();}
 
 function showSR(cls,title,detail){const el=document.getElementById('scanResult');el.className='scan-result '+cls;el.innerHTML=`<div class="sr-title">${title}</div><div class="sr-detail">${detail}</div>`;clearTimeout(el._t);el._t=setTimeout(()=>{el.className='scan-result';},7000);}
 
@@ -1751,7 +1780,7 @@ window.submitPauseFromEdit=async function(){
       pausedLinesRemaining:remaining,
       pausedNote:`Picked ${linesDone} of ${total} lines. ${remaining} remaining for next session.`
     });
-    closeModal('editOrderModal');
+    closeModal('editOrderModal');refreshData();
   }catch(e){alert('Error: '+e.message);}
   finally{btn.disabled=false;}
 };
@@ -1769,11 +1798,10 @@ window.submitUnpauseFromEdit=async function(){
       pausedNote:null,
       pausedLinesRemaining:null
     });
-    closeModal('editOrderModal');
+    closeModal('editOrderModal');refreshData();
   }catch(e){alert('Error: '+e.message);}
   finally{btn.disabled=false;}
 };
-
 
 window.saveEditOrder=async function(){
   const orderId=document.getElementById('editOrderModal').dataset.orderId;
@@ -1804,7 +1832,7 @@ window.saveEditOrder=async function(){
       }
     }
     await updateDoc(doc(db,'orders',orderId),update);
-    closeModal('editOrderModal');
+    closeModal('editOrderModal');refreshData();
   }catch(e){alert('Error saving: '+e.message);}
   finally{btn.disabled=false;}
 };
@@ -1837,6 +1865,7 @@ async function confirmDeleteOrder(orderId,orderNum,pickerName){
     for(const s of linked) await deleteDoc(doc(db,'shortages',s.id));
     // Delete the order itself
     await deleteDoc(doc(db,'orders',orderId));
+    refreshData();
   }catch(e){
     alert('Error deleting order: '+e.message);
   }
@@ -2233,7 +2262,7 @@ This cannot be undone.`))return;
       await updateDoc(doc(db,"shortages",s.id),{pickerName:keepP.name});
     // Delete duplicate picker
     await deleteDoc(doc(db,"pickers",dropP.id));
-    closeModal("mergePickerModal");
+    closeModal("mergePickerModal");refreshData();
     alert(`Done. All ${dropP.name} records merged into ${keepP.name}.`);
   }catch(e){alert("Error: "+e.message);}
 };
@@ -2245,7 +2274,7 @@ window.savePicker=async function(){
   try{
     if(!PICKERS.find(p=>p.name.toLowerCase()===name.toLowerCase()))
       await addDoc(collection(db,'pickers'),{name,shift:document.getElementById('newPickerShift').value,addedTs:Date.now(),lastActiveTs:Date.now(),archived:false,deactivated:false});
-    closeModal('addPickerModal');document.getElementById('newPickerName').value='';
+    closeModal('addPickerModal');refreshData();document.getElementById('newPickerName').value='';
   }finally{btn.disabled=false;}
 };
 
@@ -2271,7 +2300,7 @@ window.saveEditPicker=async function(){
       for(const o of ORDERS.filter(o=>o.pickerName===oldName)) await updateDoc(doc(db,'orders',o.id),{pickerName:newName});
       for(const s of SHORTAGES.filter(s=>s.pickerName===oldName)) await updateDoc(doc(db,'shortages',s.id),{pickerName:newName});
     }
-    closeModal('editPickerModal');
+    closeModal('editPickerModal');refreshData();
   }finally{btn.disabled=false;}
 };
 
@@ -2279,7 +2308,7 @@ window.confirmDeactivate=function(id,name){
   if(confirm('Deactivate '+name+'?\n\nThey will be hidden from active tracking. Historical data is preserved. You can reactivate anytime.'))
     toggleDeactivatePicker(id,true);
 };
-window.toggleDeactivatePicker=async function(id,val){await updateDoc(doc(db,'pickers',id),{deactivated:!!val});};
+window.toggleDeactivatePicker=async function(id,val){await updateDoc(doc(db,'pickers',id),{deactivated:!!val});refreshData();};
 
 // ── LIVE FLOOR ────────────────────────────────────────
 let liveSortField='lines';
@@ -2455,6 +2484,7 @@ window.cancelOpenOrder=function(orderId,orderNum,pickerName){
         canceledAt:Date.now(),
         canceledBy:currentUser?.name||'IC Manager'
       });
+      refreshData();
     }
   );
 };
@@ -2621,6 +2651,7 @@ window.completeBackorder=async function(orderId){
     backorderResolution:resolution,
     backorderResolvedAt:Date.now()
   });
+  refreshData();
 };
 
 // ── SHORTAGES ────────────────────────────────────────
@@ -2914,7 +2945,7 @@ window.submitResolve=async function(){
   for(const {id,update} of updates){
     await updateDoc(doc(db,'shortages',id),update);
   }
-  closeModal('resolveModal');
+  closeModal('resolveModal');refreshData();
 };
 
 // Keep old togglePartialQty as no-op to avoid JS errors from any lingering calls
@@ -2935,6 +2966,7 @@ window.initiateProcessResolved=function(){
       for(const s of toProcess){
         await updateDoc(doc(db,'shortages',s.id),{processed:true,processedAt:now});
       }
+      refreshData();
     }
   );
 };
@@ -3178,8 +3210,8 @@ function renderAlerts(){
   el.innerHTML=inact.map(p=>{const days=Math.floor((now-p.lastActiveTs)/86400000);return`<div class="card mb-10"><div class="card-body flex-c j-between gap-10" style="flex-wrap:wrap"><div><div style="font-size:14px;font-weight:700;margin-bottom:2px">${p.name}</div><div class="text-xs text-muted">Last: ${fmtDate(p.lastActiveTs)} · <strong style="color:var(--amber)">${days} days ago</strong></div></div><button class="btn btn-ghost btn-sm" onclick="triggerAlert('${p.id}','${p.name}',${days})">Review</button></div></div>`;}).join('');
 }
 window.triggerAlert=(id,name,days)=>{alertPickerId=id;document.getElementById('inactiveText').textContent=`${name} has not had any activity in ${days} days.`;openModal('inactiveModal');};
-window.doArchivePicker=async()=>{if(!alertPickerId)return;await updateDoc(doc(db,'pickers',alertPickerId),{archived:true});closeModal('inactiveModal');};
-window.doConfirmActive=async()=>{if(!alertPickerId)return;await updateDoc(doc(db,'pickers',alertPickerId),{lastActiveTs:Date.now()});closeModal('inactiveModal');};
+window.doArchivePicker=async()=>{if(!alertPickerId)return;await updateDoc(doc(db,'pickers',alertPickerId),{archived:true});closeModal('inactiveModal');refreshData();};
+window.doConfirmActive=async()=>{if(!alertPickerId)return;await updateDoc(doc(db,'pickers',alertPickerId),{lastActiveTs:Date.now()});closeModal('inactiveModal');refreshData();};
 
 // ── BADGES ───────────────────────────────────────────
 function updateBadges(){
@@ -3253,7 +3285,7 @@ window.initiateClearData=function(){
     const oS=await getDocs(collection(db,'orders'));const sS=await getDocs(collection(db,'shortages'));
     const batch=writeBatch(db);
     oS.docs.forEach(d=>batch.delete(d.ref));sS.docs.forEach(d=>batch.delete(d.ref));
-    await batch.commit();alert('All data cleared.');
+    await batch.commit();refreshData();alert('All data cleared.');
   });
 };
 
@@ -3615,6 +3647,27 @@ function restoreSession(){
 }
 
 boot();
+
+// ── TAB VISIBILITY GUARD ─────────────────────────────
+// When the tab is backgrounded, snapshot callbacks still fire but we skip
+// the expensive re-renders. When the tab comes back into focus we do one
+// catch-up render of the current page. This cuts wasted CPU and ensures
+// the UI is fresh when the clerk switches back to the tab.
+let _tabHidden=false;
+document.addEventListener('visibilitychange',()=>{
+  _tabHidden=document.hidden;
+  if(!_tabHidden){
+    // Tab is visible again — re-render current page once
+    const pg=activePage();
+    const renderMap={
+      scan:renderTodayFeed, 'open-orders':renderOpenOrders, live:renderLive,
+      shortages:renderShortages, backorder:renderBackorder, dashboard:renderDashboard,
+      archive:renderArchive, pickers:renderPickers, open24:renderOpen24
+    };
+    if(renderMap[pg])renderMap[pg]();
+    updateBadges();
+  }
+});
 </script>
 </body>
 </html>
